@@ -645,7 +645,7 @@ async function login() {
   btn.disabled = true; btn.textContent = "확인 중...";
 
   try {
-    const data = await api('server/api/login.php', {
+    const data = await api('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'name=' + encodeURIComponent(name) + '&password=' + encodeURIComponent(pw)
@@ -670,7 +670,7 @@ async function login() {
 }
 
 async function changeUser() {
-  try { await api('server/api/logout.php', { method: 'POST' }); } catch(e) {}
+  try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
   currentUser = "";
   const nameInp = document.getElementById("login-input");
   const pwInp   = document.getElementById("login-pw");
@@ -796,7 +796,7 @@ async function loadAndRenderExam(savedData) {
   document.getElementById("loading-text").textContent =
     currentSet.chapter + " 문제를 불러오는 중...";
   try {
-    const data = await api('server/api/get_exam.php?set=' + currentSet.id);
+    const data = await api('/api/get_exam?set=' + currentSet.id);
     if (!data.ok) throw new Error(data.error || "문제 로드 실패");
     questions = data.questions;
   } catch(e) {
@@ -892,7 +892,7 @@ async function submitExam() {
   btn.disabled = true; btn.textContent = "채점 중...";
 
   try {
-    const data = await api('server/api/submit_exam.php', {
+    const data = await api('/api/submit_exam', {
       method: 'POST',
       body: JSON.stringify({ set_id: currentSet.id, answers: userAnswers })
     });
@@ -1064,7 +1064,7 @@ document.getElementById("login-pw").addEventListener("keydown", function(e) {
   if (last) document.getElementById("login-input").value = last;
 
   try {
-    const data = await api('server/api/check_session.php');
+    const data = await api('/api/check_session');
     if (data.ok && data.name) {
       currentUser = data.name;
       document.getElementById("login-input").value = data.name;
