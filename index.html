@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>재난관리사 모의고사</title>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -661,7 +665,7 @@ async function login() {
     enterSelectScreen();
   } catch(e) {
     if (e.message !== "unauthorized") {
-      errMsg.textContent = "서버 연결에 실패했습니다.";
+      errMsg.textContent = "서버 연결에 실패��습니다.";
       errMsg.classList.add("show");
     }
   } finally {
