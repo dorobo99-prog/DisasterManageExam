@@ -41,15 +41,15 @@ async function submitLogin(resetPin) {
         pinInp.focus();
         const wantsReset = confirm(
           "입력한 숫자 네 자리가 기존 기록과 다릅니다.\n\n" +
-          "확인을 누르면 이 닉네임의 기존 이어풀기 기록이 삭제되고, 방금 입력한 숫자 네 자리로 새로 시작합니다.\n\n" +
+          "확인을 누르면 이 닉네임의 기존 진행 기록을 정리하고, 방금 입력한 숫자 네 자리로 다시 시작합니다.\n\n" +
           "제출 완료된 점수 통계는 관리자 분석을 위해 유지됩니다.\n\n" +
-          "정말 처음부터 시작할까요?"
+          "정말 새로 시작할까요?"
         );
         if (wantsReset) {
           await submitLogin(true);
           return;
         }
-        errEl.textContent = data.error || "처음 설정한 숫자 네 자리를 입력해야 이어서 풀 수 있습니다.";
+        errEl.textContent = data.error || "처음 설정한 숫자 네 자리를 입력해야 로그인할 수 있습니다.";
       } else {
         nameInp.style.borderColor = "var(--red)";
         nameInp.focus();
@@ -75,7 +75,6 @@ async function submitLogin(resetPin) {
 
 async function changeUser() {
   flushProgressOnLeave();
-  cancelQueuedProgressRemote();
   try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
   invalidateSelectCaches();
   currentUser = "";

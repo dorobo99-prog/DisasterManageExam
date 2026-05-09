@@ -188,28 +188,15 @@ module.exports = async function handler(req, res) {
       'select set_id, count(*)::int as attempts, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score, max(finished_at) as latest_at, grouping(set_id)::int as is_summary from exam_attempts where nickname = $1 group by grouping sets ((set_id), ()) order by is_summary desc, set_id',
       [user]
     ),
-    safeQuery(
-      'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1',
-      [session.user_id]
-    ),
     getGlobalDashboardStats()
   ];
 
   var results = await Promise.all(queries);
 
   var userStats = results[0];
-  var progressRows = results[1];
-  var globalStats = results[2];
+  var globalStats = results[1];
   var distributionRows = globalStats.distributionRows || [];
   var rankingRows = globalStats.rankingRows || [];
-
-  if (!session.user_id) {
-    var fallbackProgressRows = await safeQuery(
-      'select set_id, answers, graded, started_at, saved_at from exam_progress where nickname = $1',
-      [user]
-    );
-    progressRows = fallbackProgressRows;
-  }
 
   if (userStats.disabled) {
     res.json({ ok: true, disabled: true });
@@ -220,7 +207,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (progressRows.error || globalStats.error) {
+  if (globalStats.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
   }
@@ -237,11 +224,6 @@ module.exports = async function handler(req, res) {
     }
     myRankRow = myRank.row;
   }
-
-  var progress = {};
-  (progressRows.rows || []).forEach(function(row) {
-    progress[row.set_id] = normalizeProgress(row);
-  });
 
   var leaderboard = rankingRows.map(function(row) {
     return {
@@ -267,7 +249,6 @@ module.exports = async function handler(req, res) {
     distribution: distributionRows,
     leaderboard: leaderboard,
     my_rank: myRankRow,
-    progress: progress,
     weak_questions: []
   });
 };

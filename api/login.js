@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
     res.status(409).json({
       ok: false,
       code: 'pin_mismatch',
-      error: '이 닉네임으로 저장된 이어풀기 기록이 있습니다. 숫자 네 자리가 다르면 기존 이어풀기 기록을 삭제하고 처음부터 시작해야 합니다.'
+      error: '이 닉네임으로 저장된 진행 기록이 있습니다. 숫자 네 자리가 다르면 기존 진행 기록을 정리하고 새로 시작해야 합니다.'
     });
     return;
   }

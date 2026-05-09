@@ -13,21 +13,10 @@ function beginExam(resume) {
   graded      = false;
   document.getElementById("fab").classList.remove("show");
   document.getElementById("wrong-note-section").classList.remove("show");
-
-  const saved = loadProgress(currentUser, currentSet.id);
-
-  if (resume && saved && !saved.graded) {
-    userAnswers = saved.answers || {};
-    answeredCount = Object.keys(userAnswers).length;
-    examStart   = saved.started_at ? new Date(saved.started_at) : new Date();
-  } else {
-    clearLocalProgress(currentUser, currentSet.id);
-    userAnswers = {};
-    answeredCount = 0;
-    examStart   = new Date();
-  }
-
-  loadAndRenderExam(resume && saved && !saved.graded ? saved : null);
+  userAnswers = {};
+  answeredCount = 0;
+  examStart   = new Date();
+  loadAndRenderExam(null);
 }
 
 // ═══ LOAD JSON ════════════════════════════════════════════
@@ -41,7 +30,6 @@ async function loadAndRenderExam(savedData) {
     const data = await api('/api/get_exam?set=' + currentSet.id + idQuery);
     if (!data.ok) throw new Error(data.error || "문제 로드 실패");
     questions = data.questions;
-    if (!savedData) saveProgress();
   } catch(e) {
     if (e.message !== "unauthorized") {
       document.getElementById("loading-text").textContent =
@@ -51,41 +39,6 @@ async function loadAndRenderExam(savedData) {
   }
   renderExam(savedData);
   showScreen("exam");
-}
-
-async function reviewCompletedExam(savedData) {
-  currentSet = pendingSet;
-  pendingSet = null;
-  graded = true;
-  userAnswers = savedData.answers || {};
-  examStart = savedData.started_at ? new Date(savedData.started_at) : new Date();
-  document.getElementById("fab").classList.remove("show");
-  document.getElementById("wrong-note-section").classList.remove("show");
-
-  showScreen("loading");
-  document.getElementById("loading-text").textContent = "오답노트를 불러오는 중...";
-
-  try {
-    const ids = savedData.question_ids || [];
-    const review = await api('/api/review_exam', {
-      method: 'POST',
-      body: JSON.stringify({
-        set_id: currentSet.id,
-        answers: userAnswers,
-        question_ids: ids,
-        include_questions: true
-      })
-    });
-    if (!review.ok) throw new Error(review.error || "오답노트 로드 실패");
-    questions = review.questions || [];
-    renderExam(savedData);
-    gradeExam(review, { review: true });
-  } catch(e) {
-    if (e.message !== "unauthorized") {
-      document.getElementById("loading-text").textContent =
-        "오답노트를 불러오지 못했습니다. 다시 시도해주세요.";
-    }
-  }
 }
 
 // ═══ RENDER ══════════════════════════════════════════════
@@ -232,7 +185,6 @@ function onPick(qId, optNo) {
   document.getElementById(`r_${qId}_${optNo}`).checked = true;
   setProgressCellAnswered(qId, true);
   updateProgressTracker();
-  saveProgress();
 }
 
 async function submitExam() {
@@ -294,7 +246,6 @@ function gradeExam(serverData, options = {}) {
   });
 
   invalidateSelectCaches();
-  if (!options.review) saveProgress({ remote: !serverData.stats_saved });
   markCompletion(currentUser, currentSet.id, score, correct, total);
 
   const fullResults = results.map(r => {

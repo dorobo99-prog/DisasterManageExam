@@ -19,152 +19,35 @@ let pendingSet  = null;
 let modalResumeAction = () => { beginExam(true); closeModal(); };
 let modalRestartAction = () => { beginExam(false); closeModal(); };
 let mobileProgressOpen = false;
-let remoteSaveTimer = null;
-let queuedRemoteSave = null;
-let lastRemoteProgressSignature = "";
-let progressSyncPromise = null;
-let progressSyncUser = "";
 let dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
-let progressSummaryCache = { user: "", data: null, fetchedAt: 0, promise: null };
 let progressCellMap = {};
 
 // ═══ STORAGE ═════════════════════════════════════════════
 const LAST_USER_KEY = "exam__last_user";
 const DASHBOARD_CACHE_TTL_MS = 15000;
-const PROGRESS_SUMMARY_CACHE_TTL_MS = 15000;
-const PROGRESS_REMOTE_SAVE_DELAY_MS = 2500;
 
 function isFreshCache(cache, ttlMs) {
   return !!(cache && cache.data && (Date.now() - cache.fetchedAt) < ttlMs);
 }
 
-function isFreshUserCache(cache, ttlMs, user) {
-  return !!(cache && cache.user === user && isFreshCache(cache, ttlMs));
-}
-
 function invalidateSelectCaches() {
   dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
-  progressSummaryCache = { user: "", data: null, fetchedAt: 0, promise: null };
-  progressSyncPromise = null;
-  progressSyncUser = "";
-}
-
-function progressSignature(payload) {
-  return JSON.stringify({
-    set_id: payload?.set_id || "",
-    answers: payload?.answers || {},
-    graded: !!payload?.graded,
-    question_ids: payload?.question_ids || [],
-    started_at: payload?.started_at || null
-  });
 }
 
 function saveProgress(options = {}) {
-  if (!currentUser || !currentSet) return;
-  const payload = {
-    set_id: currentSet.id,
-    answers: userAnswers,
-    graded,
-    question_ids: questions.map(q => q.id),
-    started_at: examStart?.toISOString() ?? null,
-    saved_at: new Date().toISOString()
-  };
-  setCachedProgress(currentUser, currentSet.id, payload);
-  if (options.remote !== false) queueProgressRemote(payload);
-}
-
-function saveProgressRemote(payload, keepalive, expectedUser = currentUser) {
-  if (!currentSet) return;
-  if (!expectedUser || currentUser !== expectedUser) return;
-  const setId = payload.set_id || currentSet.id;
-  const signature = progressSignature(payload);
-  if (signature === lastRemoteProgressSignature) return;
-  lastRemoteProgressSignature = signature;
-  fetch('/api/progress', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    keepalive: !!keepalive,
-    body: JSON.stringify({
-      set_id: setId,
-      answers: payload.answers,
-      question_ids: payload.question_ids,
-      graded: payload.graded,
-      started_at: payload.started_at
-    })
-  }).catch(function() {
-    if (lastRemoteProgressSignature === signature) lastRemoteProgressSignature = "";
-  });
-}
-
-function cancelQueuedProgressRemote() {
-  clearTimeout(remoteSaveTimer);
-  remoteSaveTimer = null;
-  queuedRemoteSave = null;
-  lastRemoteProgressSignature = "";
-}
-
-function queueProgressRemote(payload) {
-  queuedRemoteSave = {
-    payload: payload,
-    user: currentUser
-  };
-  clearTimeout(remoteSaveTimer);
-  remoteSaveTimer = setTimeout(function() {
-    const latest = queuedRemoteSave;
-    queuedRemoteSave = null;
-    remoteSaveTimer = null;
-    if (latest) saveProgressRemote(latest.payload, false, latest.user);
-  }, PROGRESS_REMOTE_SAVE_DELAY_MS);
 }
 
 function flushProgressOnLeave() {
-  if (!currentUser || !currentSet || graded) return;
-  clearTimeout(remoteSaveTimer);
-  remoteSaveTimer = null;
-  queuedRemoteSave = null;
-  const payload = {
-    set_id: currentSet.id,
-    answers: userAnswers,
-    graded,
-    question_ids: questions.map(q => q.id),
-    started_at: examStart?.toISOString() ?? null
-  };
-  if (payload) saveProgressRemote(payload, true, currentUser);
-}
-
-function getCachedProgressMap(name) {
-  if (!name || progressSummaryCache.user !== name || !progressSummaryCache.data) return {};
-  return progressSummaryCache.data.progress || {};
-}
-
-function setCachedProgress(name, setId, progress) {
-  if (!name || !setId) return;
-  if (progressSummaryCache.user !== name || !progressSummaryCache.data) {
-    progressSummaryCache = {
-      user: name,
-      data: { ok: true, progress: {} },
-      fetchedAt: Date.now(),
-      promise: null
-    };
-  }
-  progressSummaryCache.data.progress[setId] = progress;
-  progressSummaryCache.fetchedAt = Date.now();
 }
 
 function loadProgress(name, setId) {
-  return getCachedProgressMap(name)[setId] || null;
+  return null;
 }
 
 function clearLocalProgress(name, setId) {
-  if (progressSummaryCache.user === name && progressSummaryCache.data && progressSummaryCache.data.progress) {
-    delete progressSummaryCache.data.progress[setId];
-  }
 }
 
 function clearProgress(name, setId) {
-  clearLocalProgress(name, setId);
-  api('/api/progress?set=' + encodeURIComponent(setId), { method: 'DELETE' }).catch(function() {});
 }
 
 function getCompletions(name) {
@@ -183,18 +66,10 @@ function getCompletions(name) {
 
 function markCompletion(name, setId, score, correct, total) {
   if (!name || !setId) return;
-  setCachedProgress(name, setId, {
-    set_id: setId,
-    answers: Object.assign({}, userAnswers),
-    graded: true,
-    question_ids: questions.map(q => q.id),
-    started_at: examStart?.toISOString() ?? null,
-    saved_at: new Date().toISOString()
-  });
   if (dashboardCache.user !== name || !dashboardCache.data) {
     dashboardCache = {
       user: name,
-      data: { ok: true, by_set: [], progress: getCachedProgressMap(name) },
+      data: { ok: true, by_set: [] },
       fetchedAt: Date.now(),
       promise: null
     };
@@ -214,7 +89,6 @@ function markCompletion(name, setId, score, correct, total) {
 }
 
 function clearLocalUserState(name) {
-  if (progressSummaryCache.user === name) progressSummaryCache = { user: "", data: null, fetchedAt: 0, promise: null };
   if (dashboardCache.user === name) dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
 }
 

@@ -5,13 +5,8 @@ function enterSelectScreen() {
   showScreen("select");
   setTimeout(function() {
     if (!currentUser) return;
-    const userAtEnter = currentUser;
     renderSetCards();
-    loadDashboard().then(function(data) {
-      if (!data && currentUser === userAtEnter && !isFreshUserCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS, userAtEnter)) {
-        renderSetCards();
-      }
-    });
+    loadDashboard();
   }, 0);
 }
 
@@ -40,12 +35,6 @@ async function loadDashboard() {
       dashboardCache.user = requestUser;
       dashboardCache.data = data;
       dashboardCache.fetchedAt = Date.now();
-      if (data.progress) {
-        progressSummaryCache.user = requestUser;
-        progressSummaryCache.data = { ok: true, progress: data.progress };
-        progressSummaryCache.fetchedAt = Date.now();
-        applyProgressSummary(progressSummaryCache.data, requestUser);
-      }
       renderDashboard(data, requestUser);
       return data;
     })
@@ -55,19 +44,15 @@ async function loadDashboard() {
     })
     .finally(function() {
       if (dashboardCache.promise === request) dashboardCache.promise = null;
-      if (progressSyncPromise === request) progressSyncPromise = null;
-      if (progressSyncPromise === null && progressSyncUser === requestUser) progressSyncUser = "";
     });
   dashboardCache.user = requestUser;
   dashboardCache.promise = request;
-  progressSyncPromise = request;
-  progressSyncUser = requestUser;
   return request;
 }
 
 function renderDashboard(data, userName = currentUser) {
   if (!data || currentUser !== userName) return;
-  syncServerCompletions(data.by_set || [], data.progress || {}, userName);
+  syncServerCompletions(data.by_set || [], userName);
 
   const summary = data.summary || {};
   document.getElementById("dashboard-sub").textContent =
@@ -91,51 +76,30 @@ function renderDashboard(data, userName = currentUser) {
     </div>`).join("") : `<div class="dashboard-row"><span>랭킹 데이터 없음</span><span>-</span></div>`;
 }
 
-function syncServerCompletions(rows, progressMap = {}, userName = currentUser) {
+function syncServerCompletions(rows, userName = currentUser) {
   if (!userName || !Array.isArray(rows)) return;
   if (dashboardCache.user === userName && dashboardCache.data) dashboardCache.data.by_set = rows;
-  if (progressSummaryCache.user === userName && progressSummaryCache.data) progressSummaryCache.data.progress = progressMap;
-}
-
-function getProgressSnapshot(userName = currentUser) {
-  const snapshot = {};
-  EXAM_SETS.forEach(function(set) {
-    snapshot[set.id] = loadProgress(userName, set.id);
-  });
-  return snapshot;
 }
 
 function renderSetCards() {
   const grid = document.getElementById("grid-exams");
   const renderUser = currentUser;
   const completions = getCompletions(renderUser);
-  const progressMap = getProgressSnapshot(renderUser);
-  const isSyncing = !isFreshUserCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS, renderUser);
   grid.innerHTML = "";
   EXAM_SETS.forEach(set => {
-    grid.appendChild(makeSetCard(set, completions, progressMap, isSyncing));
+    grid.appendChild(makeSetCard(set, completions));
   });
 }
 
-function makeSetCard(set, completions, progressMap, isSyncing) {
+function makeSetCard(set, completions) {
   const card = document.createElement("div");
   card.className = "set-card";
 
-  const prog  = progressMap[set.id];
-  const inProg = prog && !prog.graded;
-  const done  = prog && prog.graded
-    ? (completions[set.id] || { score: "-", correct: null, total: null, at: prog.saved_at || null })
-    : null;
+  const done  = completions[set.id] || null;
 
   let badge = "";
-  if (inProg) {
-    const cnt = Object.keys(prog.answers || {}).length;
-    const total = (prog.question_ids || []).length || set.count;
-    badge = `<span class="set-card-status in-prog">${cnt}/${total} 진행중</span>`;
-  } else if (done) {
+  if (done) {
     badge = `<span class="set-card-status done">완료 ${done.score}점</span>`;
-  } else if (isSyncing) {
-    badge = `<span class="set-card-status in-prog">상태 확인 중</span>`;
   }
 
   card.innerHTML = `
@@ -148,89 +112,16 @@ function makeSetCard(set, completions, progressMap, isSyncing) {
   return card;
 }
 
-async function fetchServerProgressState(setId) {
-  try {
-    const data = await api('/api/progress?set=' + encodeURIComponent(setId));
-    if (data.ok && data.progress) {
-      return {
-        found: true,
-        progress: {
-          answers: data.progress.answers || {},
-          question_ids: data.progress.question_ids || [],
-          graded: !!data.progress.graded,
-          started_at: data.progress.started_at || null,
-          saved_at: data.progress.saved_at || null
-        }
-      };
-    }
-  } catch(e) {
-    return { found: false, progress: null, unknown: true };
-  }
-  return { found: false, progress: null };
-}
-
-function applyProgressSummary(data, userName = currentUser) {
-  if (!data || !data.progress || !userName) return;
-  progressSummaryCache.user = userName;
-  progressSummaryCache.data = data;
-  progressSummaryCache.fetchedAt = Date.now();
-  if (currentUser === userName) renderSetCards();
-}
-
-async function getProgressForSet(setId) {
-  const requestUser = currentUser;
-  let progress = loadProgress(requestUser, setId);
-  if (!progress && progressSyncPromise && progressSyncUser === requestUser) {
-    try {
-      await progressSyncPromise;
-      if (currentUser !== requestUser) return null;
-      progress = loadProgress(requestUser, setId);
-    } catch(e) {}
-  }
-  if (!progress) {
-    const state = await fetchServerProgressState(setId);
-    if (currentUser !== requestUser) return null;
-    if (state.found) {
-      progress = state.progress;
-      setCachedProgress(requestUser, setId, progress);
-    } else if (!state.unknown) {
-      clearLocalProgress(requestUser, setId);
-    }
-  }
-  return progress;
-}
-
 async function onSelectSet(set) {
-  const requestUser = currentUser;
   pendingSet = set;
-  const prog = await getProgressForSet(set.id);
-  if (currentUser !== requestUser) return;
-  const done = prog && prog.graded
-    ? (getCompletions(requestUser)[set.id] || { score: "-", correct: null, total: null, at: prog.saved_at || null })
-    : null;
+  const done = getCompletions(currentUser)[set.id] || null;
 
-  if (prog && !prog.graded) {
-    const cnt = Object.keys(prog.answers || {}).length;
-    document.getElementById("modal-title").textContent = "이어서 풀기";
-    document.getElementById("modal-desc").textContent  =
-      `${currentUser}님의 저장된 진행 기록이 있습니다.\n(${cnt}문제 완료)`;
-    document.getElementById("btn-modal-resume").style.display = "";
-    document.getElementById("btn-modal-resume").textContent   = "이어서 풀기";
-    document.getElementById("btn-modal-restart").textContent  = "처음부터 다시";
-    modalResumeAction = () => { beginExam(true); closeModal(); };
-    modalRestartAction = () => { beginExam(false); closeModal(); };
-    showModal();
-  } else if (done) {
-    const canReview = prog && prog.graded && (prog.question_ids || []).length;
+  if (done) {
     document.getElementById("modal-title").textContent = "완료한 과목";
     document.getElementById("modal-desc").textContent  =
-      canReview
-        ? `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n오답노트를 다시 보거나 새로 응시할 수 있습니다.`
-        : `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n이전 상세 답안 기록이 없어 재응시만 가능합니다.`;
-    document.getElementById("btn-modal-resume").style.display  = canReview ? "" : "none";
-    document.getElementById("btn-modal-resume").textContent    = "오답노트 보기 / 결과 다운로드";
+      `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n새로 다시 응시할 수 있습니다.`;
+    document.getElementById("btn-modal-resume").style.display  = "none";
     document.getElementById("btn-modal-restart").textContent   = "다시 응시하기";
-    modalResumeAction = () => { reviewCompletedExam(prog); closeModal(); };
     modalRestartAction = () => { beginExam(false); closeModal(); };
     showModal();
   } else {
