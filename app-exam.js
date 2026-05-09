@@ -130,7 +130,7 @@ function renderExam(savedData) {
 
   if (savedData) restoreAnswers();
   renderProgressTracker();
-  updateProgressTracker();
+  syncProgressTracker();
 }
 
 function restoreAnswers() {
@@ -160,6 +160,8 @@ function renderProgressTracker() {
   const mobileToggle = document.getElementById("mobile-progress-toggle");
   if (!desktopGrid || !mobileGrid) return;
 
+  progressCellMap = {};
+
   const cells = questions.map((q, idx) => `
     <button class="progress-cell" type="button" data-qid="${q.id}" data-qidx="${idx}"
       onclick="scrollToQuestion(${idx})" aria-label="${idx + 1}번 문제로 이동">${idx + 1}</button>
@@ -169,6 +171,14 @@ function renderProgressTracker() {
   mobileGrid.innerHTML = cells;
   if (mobileBox) mobileBox.classList.remove("open");
   if (mobileToggle) mobileToggle.textContent = "문항표 보기";
+
+  [desktopGrid, mobileGrid].forEach(function(grid) {
+    grid.querySelectorAll(".progress-cell").forEach(function(cell) {
+      const qId = cell.dataset.qid;
+      if (!progressCellMap[qId]) progressCellMap[qId] = [];
+      progressCellMap[qId].push(cell);
+    });
+  });
 }
 
 function updateProgressTracker() {
@@ -186,10 +196,19 @@ function updateProgressTracker() {
   if (desktopFill) desktopFill.style.width = pct + "%";
   if (mobileFill) mobileFill.style.width = pct + "%";
 
-  document.querySelectorAll(".progress-cell").forEach(cell => {
-    const qId = cell.dataset.qid;
-    cell.classList.toggle("answered", userAnswers[qId] != null);
+}
+
+function setProgressCellAnswered(qId, answered) {
+  (progressCellMap[qId] || []).forEach(function(cell) {
+    cell.classList.toggle("answered", answered);
   });
+}
+
+function syncProgressTracker() {
+  questions.forEach(function(q) {
+    setProgressCellAnswered(q.id, userAnswers[q.id] != null);
+  });
+  updateProgressTracker();
 }
 
 function scrollToQuestion(index) {
@@ -212,6 +231,7 @@ function onPick(qId, optNo) {
   if (graded) return;
   userAnswers[qId] = optNo;
   document.getElementById(`r_${qId}_${optNo}`).checked = true;
+  setProgressCellAnswered(qId, true);
   updateProgressTracker();
   saveProgress();
 }
@@ -275,6 +295,7 @@ function gradeExam(serverData, options = {}) {
   });
 
   markCompletion(currentUser, currentSet.id, score, correct, total);
+  invalidateSelectCaches();
   if (!options.review) saveProgress();
 
   const fullResults = results.map(r => {

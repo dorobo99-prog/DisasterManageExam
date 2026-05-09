@@ -21,11 +21,25 @@ let mobileProgressOpen = false;
 let remoteSaveTimer = null;
 let queuedRemoteSave = null;
 let progressSyncPromise = null;
+let dashboardCache = { data: null, fetchedAt: 0, promise: null };
+let progressSummaryCache = { data: null, fetchedAt: 0, promise: null };
+let progressCellMap = {};
 
 // ═══ STORAGE ═════════════════════════════════════════════
 const LAST_USER_KEY = "exam__last_user";
+const DASHBOARD_CACHE_TTL_MS = 15000;
+const PROGRESS_SUMMARY_CACHE_TTL_MS = 15000;
 function progressKey(name, setId)  { return `exam_prog__${setId}__${name}`; }
 function completionKey(name)        { return `exam_done__${name}`; }
+
+function isFreshCache(cache, ttlMs) {
+  return !!(cache && cache.data && (Date.now() - cache.fetchedAt) < ttlMs);
+}
+
+function invalidateSelectCaches() {
+  dashboardCache = { data: null, fetchedAt: 0, promise: null };
+  progressSummaryCache = { data: null, fetchedAt: 0, promise: null };
+}
 
 function saveProgress() {
   if (!currentUser || !currentSet) return;

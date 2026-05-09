@@ -61,6 +61,7 @@ async function submitLogin(resetPin) {
     nameInp.style.borderColor = "";
     pinInp.style.borderColor = "";
     if (data.reset) clearLocalUserState(name);
+    invalidateSelectCaches();
     currentUser = name;
     try { localStorage.setItem(LAST_USER_KEY, name); } catch(e) {}
     enterSelectScreen();
@@ -73,6 +74,7 @@ async function submitLogin(resetPin) {
 
 async function changeUser() {
   try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
+  invalidateSelectCaches();
   currentUser = "";
   const nameInp = document.getElementById("login-input");
   const pinInp = document.getElementById("pin-input");

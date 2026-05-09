@@ -15,16 +15,31 @@ async function loadDashboard() {
   document.getElementById("dashboard-sub").textContent = "응시 기록을 불러오는 중...";
   document.getElementById("dashboard-rank").textContent = "순위 집계 중";
 
-  try {
-    const data = await api('/api/dashboard');
-    if (!data.ok || data.disabled) {
-      card.classList.remove("show");
-      return;
-    }
-    renderDashboard(data);
-  } catch(e) {
-    if (e.message !== "unauthorized") card.classList.remove("show");
+  if (isFreshCache(dashboardCache, DASHBOARD_CACHE_TTL_MS)) {
+    renderDashboard(dashboardCache.data);
+    return dashboardCache.data;
   }
+  if (dashboardCache.promise) return dashboardCache.promise;
+
+  dashboardCache.promise = api('/api/dashboard')
+    .then(function(data) {
+      if (!data.ok || data.disabled) {
+        card.classList.remove("show");
+        return data;
+      }
+      dashboardCache.data = data;
+      dashboardCache.fetchedAt = Date.now();
+      renderDashboard(data);
+      return data;
+    })
+    .catch(function(e) {
+      if (e.message !== "unauthorized") card.classList.remove("show");
+      return null;
+    })
+    .finally(function() {
+      dashboardCache.promise = null;
+    });
+  return dashboardCache.promise;
 }
 
 function renderDashboard(data) {
@@ -133,33 +148,48 @@ async function fetchServerProgressState(setId) {
 
 async function syncServerProgressForCards() {
   if (!currentUser) return;
-  let changed = false;
+  if (isFreshCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS)) {
+    applyProgressSummary(progressSummaryCache.data);
+    return progressSummaryCache.data;
+  }
+  if (progressSummaryCache.promise) return progressSummaryCache.promise;
   progressSyncPromise = api('/api/progress_summary')
     .then(function(data) {
-      if (!data.ok || !data.progress) return;
-      EXAM_SETS.forEach(function(set) {
-        const progress = data.progress[set.id] || null;
-        if (progress) {
-          try {
-            localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(progress));
-            changed = true;
-          } catch(e) {}
-        } else if (loadProgress(currentUser, set.id)) {
-          try {
-            localStorage.removeItem(progressKey(currentUser, set.id));
-            changed = true;
-          } catch(e) {}
-        }
-      });
-      if (changed) renderSetCards();
+      if (!data.ok || !data.progress) return data;
+      progressSummaryCache.data = data;
+      progressSummaryCache.fetchedAt = Date.now();
+      applyProgressSummary(data);
+      return data;
     })
     .catch(function(e) {
       if (e.message !== "unauthorized") return null;
     })
     .finally(function() {
+      progressSummaryCache.promise = null;
       progressSyncPromise = null;
     });
+  progressSummaryCache.promise = progressSyncPromise;
   return progressSyncPromise;
+}
+
+function applyProgressSummary(data) {
+  if (!data || !data.progress) return;
+  let changed = false;
+  EXAM_SETS.forEach(function(set) {
+    const progress = data.progress[set.id] || null;
+    if (progress) {
+      try {
+        localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(progress));
+        changed = true;
+      } catch(e) {}
+    } else if (loadProgress(currentUser, set.id)) {
+      try {
+        localStorage.removeItem(progressKey(currentUser, set.id));
+        changed = true;
+      } catch(e) {}
+    }
+  });
+  if (changed) renderSetCards();
 }
 
 async function getProgressForSet(setId) {
