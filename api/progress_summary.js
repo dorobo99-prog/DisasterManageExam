@@ -1,5 +1,5 @@
 const { getSession } = require('./_auth');
-const { ensureAccountTables } = require('./_account');
+const { withSchemaFallback } = require('./_account');
 const { query } = require('./_db');
 
 function normalizeProgress(row) {
@@ -30,12 +30,12 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  await ensureAccountTables();
-
-  var found = await query(
-    'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1',
-    [session.user_id]
-  );
+  var found = await withSchemaFallback(function() {
+    return query(
+      'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1',
+      [session.user_id]
+    );
+  });
   var progress = {};
   (found.rows || []).forEach(function(row) {
     progress[row.set_id] = normalizeProgress(row);

@@ -1,5 +1,5 @@
 const { getSession, readBody } = require('./_auth');
-const { ensureAccountTables } = require('./_account');
+const { withSchemaFallback } = require('./_account');
 const { query, exec } = require('./_db');
 const { isAllowedPublicSet } = require('./_exam_sets');
 
@@ -13,18 +13,18 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  await ensureAccountTables();
-
   if (req.method === 'GET') {
     var getSet = (req.query.set || '').trim();
     if (!isAllowedPublicSet(getSet)) {
       res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
       return;
     }
-    var found = await query(
-      'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1 and set_id = $2 limit 1',
-      [session.user_id, getSet]
-    );
+    var found = await withSchemaFallback(function() {
+      return query(
+        'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1 and set_id = $2 limit 1',
+        [session.user_id, getSet]
+      );
+    });
     if (found.rows[0] && found.rows[0].answers && found.rows[0].answers.__question_ids) {
       found.rows[0].question_ids = found.rows[0].answers.__question_ids;
       delete found.rows[0].answers.__question_ids;
@@ -39,10 +39,12 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
       return;
     }
-    await exec(
-      'delete from exam_progress where user_id = $1 and set_id = $2',
-      [session.user_id, deleteSet]
-    );
+    await withSchemaFallback(function() {
+      return exec(
+        'delete from exam_progress where user_id = $1 and set_id = $2',
+        [session.user_id, deleteSet]
+      );
+    });
     res.json({ ok: true });
     return;
   }
@@ -62,16 +64,18 @@ module.exports = async function handler(req, res) {
   var storedAnswers = Object.assign({}, payload.answers || {});
   storedAnswers.__question_ids = payload.question_ids || [];
 
-  await exec(
-    'insert into exam_progress (user_id, nickname, set_id, answers, graded, started_at, saved_at) values ($1, $2, $3, $4::jsonb, $5, $6, now()) on conflict (user_id, set_id) do update set answers = excluded.answers, graded = excluded.graded, started_at = coalesce(excluded.started_at, exam_progress.started_at), saved_at = now()',
-    [
-      session.user_id,
-      session.name,
-      setId,
-      JSON.stringify(storedAnswers),
-      !!payload.graded,
-      payload.started_at || null
-    ]
-  );
+  await withSchemaFallback(function() {
+    return exec(
+      'insert into exam_progress (user_id, nickname, set_id, answers, graded, started_at, saved_at) values ($1, $2, $3, $4::jsonb, $5, $6, now()) on conflict (user_id, set_id) do update set answers = excluded.answers, graded = excluded.graded, started_at = coalesce(excluded.started_at, exam_progress.started_at), saved_at = now()',
+      [
+        session.user_id,
+        session.name,
+        setId,
+        JSON.stringify(storedAnswers),
+        !!payload.graded,
+        payload.started_at || null
+      ]
+    );
+  });
   res.json({ ok: true });
 };

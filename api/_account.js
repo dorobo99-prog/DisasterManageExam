@@ -20,6 +20,23 @@ async function ensureAccountTables() {
   ready = true;
 }
 
+function needsSchemaBootstrap(err) {
+  var msg = String((err && (err.code || err.message)) || err || '').toLowerCase();
+  return msg.indexOf('does not exist') >= 0 ||
+    msg.indexOf('undefined_table') >= 0 ||
+    msg.indexOf('42p01') >= 0;
+}
+
+async function withSchemaFallback(operation) {
+  try {
+    return await operation();
+  } catch (err) {
+    if (!needsSchemaBootstrap(err)) throw err;
+    await ensureAccountTables();
+    return operation();
+  }
+}
+
 function hashPin(pin, salt) {
   return crypto.pbkdf2Sync(pin, salt, 120000, 32, 'sha256').toString('hex');
 }
@@ -33,38 +50,41 @@ function isValidPin(pin) {
 }
 
 async function findUserByNickname(nickname) {
-  await ensureAccountTables();
-  var result = await query(
-    'select id, nickname, pin_salt, pin_hash from exam_users where nickname = $1 limit 1',
-    [nickname]
-  );
+  var result = await withSchemaFallback(function() {
+    return query(
+      'select id, nickname, pin_salt, pin_hash from exam_users where nickname = $1 limit 1',
+      [nickname]
+    );
+  });
   return result.rows[0] || null;
 }
 
 async function createUser(nickname, pin) {
-  await ensureAccountTables();
   var id = crypto.randomUUID();
   var salt = crypto.randomBytes(16).toString('hex');
   var pinHash = hashPin(pin, salt);
-  await exec(
-    'insert into exam_users (id, nickname, pin_salt, pin_hash) values ($1, $2, $3, $4)',
-    [id, nickname, salt, pinHash]
-  );
+  await withSchemaFallback(function() {
+    return exec(
+      'insert into exam_users (id, nickname, pin_salt, pin_hash) values ($1, $2, $3, $4)',
+      [id, nickname, salt, pinHash]
+    );
+  });
   return { id: id, nickname: nickname };
 }
 
 async function resetUserPinAndProgress(user, pin) {
-  await ensureAccountTables();
   var salt = crypto.randomBytes(16).toString('hex');
   var pinHash = hashPin(pin, salt);
-  await exec(
-    'update exam_users set pin_salt = $1, pin_hash = $2, updated_at = now() where id = $3',
-    [salt, pinHash, user.id]
-  );
-  await exec(
-    'delete from exam_progress where user_id = $1',
-    [user.id]
-  );
+  await withSchemaFallback(async function() {
+    await exec(
+      'update exam_users set pin_salt = $1, pin_hash = $2, updated_at = now() where id = $3',
+      [salt, pinHash, user.id]
+    );
+    await exec(
+      'delete from exam_progress where user_id = $1',
+      [user.id]
+    );
+  });
   return { id: user.id, nickname: user.nickname };
 }
 
@@ -76,6 +96,7 @@ function verifyPin(user, pin) {
 
 module.exports = {
   ensureAccountTables,
+  withSchemaFallback,
   normalizeNickname,
   isValidPin,
   findUserByNickname,
