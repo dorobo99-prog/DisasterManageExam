@@ -102,6 +102,16 @@
       text-align: center;
     }
     .name-input:focus { border-color: var(--blue); }
+    .login-help {
+      max-width: 320px; margin: 2px auto 0;
+      font-size: 12px; line-height: 1.45; color: var(--dim-text);
+      letter-spacing: -0.12px;
+    }
+    .login-error {
+      display: none; max-width: 320px; margin: 2px auto 0;
+      font-size: 13px; line-height: 1.45; color: var(--red);
+      letter-spacing: -0.12px;
+    }
     .btn-primary {
       font-family: inherit; font-size: 17px; font-weight: 400;
       padding: 13px 0; width: 100%; max-width: 320px;
@@ -484,11 +494,16 @@
 
   <div class="login-wrap">
     <h2>응시자 확인</h2>
-    <p>닉네임을 입력하고 시작하세요.</p>
+    <p>닉네임과 본인이 정한 숫자 네 자리를 입력하세요.</p>
     <div class="login-field">
       <input type="text" class="name-input" id="login-input"
         placeholder="닉네임 입력" maxlength="30"
         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input type="password" class="name-input" id="pin-input"
+        placeholder="숫자 네 자리" inputmode="numeric" maxlength="4"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <p class="login-help">다른 기기에서도 같은 닉네임과 숫자 네 자리를 입력하면 이어서 풀 수 있습니다.</p>
+      <p class="login-error" id="login-error"></p>
       <button class="btn-primary" id="btn-login" type="button">시작하기</button>
     </div>
   </div>
@@ -647,19 +662,30 @@ function completionKey(name)        { return `exam_done__${name}`; }
 
 function saveProgress() {
   if (!currentUser || !currentSet) return;
+  const payload = {
+    answers: userAnswers, graded,
+    started_at: examStart?.toISOString() ?? null,
+    saved_at: new Date().toISOString()
+  };
   try {
-    localStorage.setItem(progressKey(currentUser, currentSet.id), JSON.stringify({
-      answers: userAnswers, graded,
-      started_at: examStart?.toISOString() ?? null,
-      saved_at: new Date().toISOString()
-    }));
+    localStorage.setItem(progressKey(currentUser, currentSet.id), JSON.stringify(payload));
   } catch(e) {}
+  api('/api/progress', {
+    method: 'POST',
+    body: JSON.stringify({
+      set_id: currentSet.id,
+      answers: payload.answers,
+      graded: payload.graded,
+      started_at: payload.started_at
+    })
+  }).catch(function() {});
 }
 function loadProgress(name, setId) {
   try { return JSON.parse(localStorage.getItem(progressKey(name, setId))); } catch(e) { return null; }
 }
 function clearProgress(name, setId) {
   try { localStorage.removeItem(progressKey(name, setId)); } catch(e) {}
+  api('/api/progress?set=' + encodeURIComponent(setId), { method: 'DELETE' }).catch(function() {});
 }
 function getCompletions(name) {
   try { return JSON.parse(localStorage.getItem(completionKey(name))) || {}; } catch(e) { return {}; }
@@ -713,9 +739,24 @@ function escapeHtml(value) {
 // ═══ LOGIN ═══════════════════════════════════════════════
 async function login() {
   const nameInp = document.getElementById("login-input");
+  const pinInp = document.getElementById("pin-input");
+  const errEl = document.getElementById("login-error");
   const name = nameInp.value.trim();
+  const pin = pinInp.value.trim();
+
+  errEl.style.display = "none";
+  errEl.textContent = "";
+  nameInp.style.borderColor = "";
+  pinInp.style.borderColor = "";
 
   if (!name) { nameInp.focus(); nameInp.style.borderColor = "var(--red)"; return; }
+  if (!/^[0-9]{4}$/.test(pin)) {
+    pinInp.focus();
+    pinInp.style.borderColor = "var(--red)";
+    errEl.textContent = "숫자 네 자리를 입력하세요.";
+    errEl.style.display = "block";
+    return;
+  }
 
   const btn = document.getElementById("btn-login");
   btn.disabled = true; btn.textContent = "확인 중...";
@@ -724,14 +765,23 @@ async function login() {
     const data = await api('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'name=' + encodeURIComponent(name)
+      body: 'name=' + encodeURIComponent(name) + '&pin=' + encodeURIComponent(pin)
     });
     if (!data.ok) {
-      nameInp.style.borderColor = "var(--red)";
-      nameInp.focus();
+      if (data.code === "pin_mismatch") {
+        pinInp.style.borderColor = "var(--red)";
+        pinInp.focus();
+        errEl.textContent = data.error || "처음 설정한 숫자 네 자리를 입력해야 이어서 풀 수 있습니다.";
+      } else {
+        nameInp.style.borderColor = "var(--red)";
+        nameInp.focus();
+        errEl.textContent = data.error || "입력값을 확인해주세요.";
+      }
+      errEl.style.display = "block";
       return;
     }
     nameInp.style.borderColor = "";
+    pinInp.style.borderColor = "";
     currentUser = name;
     try { localStorage.setItem(LAST_USER_KEY, name); } catch(e) {}
     enterSelectScreen();
@@ -746,8 +796,13 @@ async function changeUser() {
   try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
   currentUser = "";
   const nameInp = document.getElementById("login-input");
+  const pinInp = document.getElementById("pin-input");
+  const errEl = document.getElementById("login-error");
   nameInp.value = "";
+  pinInp.value = "";
   nameInp.style.borderColor = "";
+  pinInp.style.borderColor = "";
+  errEl.style.display = "none";
   showScreen("login");
   setTimeout(() => nameInp.focus(), 300);
 }
@@ -846,9 +901,28 @@ function makeSetCard(set) {
   return card;
 }
 
-function onSelectSet(set) {
+async function fetchServerProgress(setId) {
+  try {
+    const data = await api('/api/progress?set=' + encodeURIComponent(setId));
+    if (data.ok && data.progress && !data.progress.graded) {
+      return {
+        answers: data.progress.answers || {},
+        graded: !!data.progress.graded,
+        started_at: data.progress.started_at || null,
+        saved_at: data.progress.saved_at || null
+      };
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function onSelectSet(set) {
   pendingSet = set;
-  const prog = loadProgress(currentUser, set.id);
+  const serverProg = await fetchServerProgress(set.id);
+  if (serverProg) {
+    try { localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(serverProg)); } catch(e) {}
+  }
+  const prog = serverProg || loadProgress(currentUser, set.id);
   const done = getCompletions(currentUser)[set.id];
 
   if (done) {
@@ -1177,6 +1251,13 @@ wireTouch("btn-submit", submitExam);
 document.getElementById("login-input").addEventListener("keydown", function(e) {
   if (e.key === "Enter") login();
   this.style.borderColor = "";
+});
+document.getElementById("pin-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") login();
+  this.style.borderColor = "";
+});
+document.getElementById("pin-input").addEventListener("input", function() {
+  this.value = this.value.replace(/\D/g, "").slice(0, 4);
 });
 
 // ═══ INIT ════════════════════════════════════════════════

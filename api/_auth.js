@@ -5,13 +5,21 @@ const PW_HASH = process.env.PASSWORD_HASH || '2e71608399786b6178faa3681a877f300e
 const COOKIE  = 'exam_auth';
 const TTL_MS  = 8 * 3600 * 1000;
 
+function encodePayload(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+function decodePayload(value) {
+  return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+}
+
 function sign(payload) {
   return crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
 }
 
-function makeToken(name) {
+function makeToken(name, userId) {
   const exp     = Date.now() + TTL_MS;
-  const payload = encodeURIComponent(name) + '.' + exp;
+  const payload = encodePayload({ name: name, user_id: userId || null }) + '.' + exp;
   return payload + '.' + sign(payload);
 }
 
@@ -26,17 +34,33 @@ function verifyToken(token) {
   if (dotIdx < 0) return null;
   const exp = parseInt(payload.slice(dotIdx + 1), 10);
   if (isNaN(exp) || Date.now() > exp) return null;
-  return decodeURIComponent(payload.slice(0, dotIdx));
+  try {
+    var session = decodePayload(payload.slice(0, dotIdx));
+    return {
+      name: session.name || '',
+      user_id: session.user_id || null
+    };
+  } catch (e) {
+    return {
+      name: decodeURIComponent(payload.slice(0, dotIdx)),
+      user_id: null
+    };
+  }
 }
 
-function getUser(req) {
+function getSession(req) {
   const cookies = req.headers.cookie || '';
   const match   = cookies.match(new RegExp('(?:^|; )' + COOKIE + '=([^;]*)'));
   return match ? verifyToken(decodeURIComponent(match[1])) : null;
 }
 
-function setAuth(res, name) {
-  const token = makeToken(name);
+function getUser(req) {
+  var session = getSession(req);
+  return session ? session.name : null;
+}
+
+function setAuth(res, name, userId) {
+  const token = makeToken(name, userId);
   res.setHeader('Set-Cookie',
     COOKIE + '=' + encodeURIComponent(token) +
     '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + (8 * 3600));
@@ -58,4 +82,4 @@ function readBody(req) {
   });
 }
 
-module.exports = { getUser, setAuth, clearAuth, checkPassword, readBody };
+module.exports = { getUser, getSession, setAuth, clearAuth, checkPassword, readBody };
