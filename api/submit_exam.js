@@ -22,17 +22,25 @@ async function saveAttemptStats(user, setId, score, correct, total, results, sta
       ).collect();
 
       var attemptId = attemptRows[0] && attemptRows[0].id;
-      for (var i = 0; i < results.length; i++) {
-        var r = results[i];
+      if (results.length > 0) {
+        var params = [];
+        var values = results.map(function(r, idx) {
+          var base = idx * 7;
+          params.push(
+            attemptId,
+            user,
+            setId,
+            r.id,
+            r.my_answer,
+            r.correct_answer,
+            r.is_correct
+          );
+          return '($' + (base + 1) + ', $' + (base + 2) + ', $' + (base + 3) + ', $' + (base + 4) + ', $' + (base + 5) + ', $' + (base + 6) + ', $' + (base + 7) + ')';
+        }).join(', ');
+
         await tx.exec(
-          'insert into exam_answers (attempt_id, nickname, set_id, question_id, my_answer, correct_answer, is_correct) values ($1, $2, $3, $4, $5, $6, $7)',
-          attemptId,
-          user,
-          setId,
-          r.id,
-          r.my_answer,
-          r.correct_answer,
-          r.is_correct
+          'insert into exam_answers (attempt_id, nickname, set_id, question_id, my_answer, correct_answer, is_correct) values ' + values,
+          ...params
         );
       }
       return true;

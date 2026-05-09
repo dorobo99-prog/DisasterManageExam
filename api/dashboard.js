@@ -58,12 +58,7 @@ module.exports = async function handler(req, res) {
     [user]
   );
 
-  var weakQuestions = await safeQuery(
-    'select set_id, question_id, count(*)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers where nickname = $1 group by set_id, question_id having count(*) > 0 order by correct_rate asc, attempts desc, set_id, question_id limit 10',
-    [user]
-  );
-
-  if (bySet.error || distribution.error || leaderboard.error || myRank.error || weakQuestions.error) {
+  if (bySet.error || distribution.error || leaderboard.error || myRank.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
   }
@@ -76,6 +71,6 @@ module.exports = async function handler(req, res) {
     distribution: distribution.rows,
     leaderboard: leaderboard.rows,
     my_rank: myRank.rows[0] || null,
-    weak_questions: weakQuestions.rows
+    weak_questions: []
   });
 };
