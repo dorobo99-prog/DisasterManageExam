@@ -1,11 +1,13 @@
-const { getUser } = require('./_auth');
+const { getSession } = require('./_auth');
+const { ensureAccountTables } = require('./_account');
 const { query } = require('./_db');
 
-const GLOBAL_DASHBOARD_CACHE_TTL_MS = 15000;
+const GLOBAL_DASHBOARD_CACHE_TTL_MS = 60000;
 let globalDashboardCache = {
   fetchedAt: 0,
   distributionRows: null,
-  rankingRows: null
+  rankingRows: null,
+  rankByNickname: null
 };
 
 async function safeQuery(sql, params) {
@@ -38,6 +40,7 @@ function isFreshGlobalDashboardCache() {
   return !!(
     globalDashboardCache.distributionRows &&
     globalDashboardCache.rankingRows &&
+    globalDashboardCache.rankByNickname &&
     (Date.now() - globalDashboardCache.fetchedAt) < GLOBAL_DASHBOARD_CACHE_TTL_MS
   );
 }
@@ -47,6 +50,7 @@ async function getGlobalDashboardStats() {
     return {
       distributionRows: globalDashboardCache.distributionRows,
       rankingRows: globalDashboardCache.rankingRows,
+      rankByNickname: globalDashboardCache.rankByNickname,
       error: null
     };
   }
@@ -57,7 +61,7 @@ async function getGlobalDashboardStats() {
       []
     ),
     safeQuery(
-      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, nickname, avg_best_score, completed_sets from ranked order by rank, nickname limit 20',
+      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, nickname, avg_best_score, completed_sets from ranked order by rank, nickname',
       []
     )
   ]);
@@ -73,15 +77,27 @@ async function getGlobalDashboardStats() {
     };
   }
 
+  var rankingRows = ranking.rows || [];
+  var rankByNickname = {};
+  rankingRows.forEach(function(row) {
+    rankByNickname[row.nickname] = {
+      rank: row.rank,
+      avg_best_score: row.avg_best_score,
+      completed_sets: row.completed_sets
+    };
+  });
+
   globalDashboardCache = {
     fetchedAt: Date.now(),
     distributionRows: distribution.rows || [],
-    rankingRows: ranking.rows || []
+    rankingRows: rankingRows.slice(0, 20),
+    rankByNickname: rankByNickname
   };
 
   return {
     distributionRows: globalDashboardCache.distributionRows,
     rankingRows: globalDashboardCache.rankingRows,
+    rankByNickname: globalDashboardCache.rankByNickname,
     error: null
   };
 }
@@ -90,18 +106,21 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
 
-  var user = getUser(req);
-  if (!user) {
+  var session = getSession(req);
+  if (!session || !session.name) {
     res.status(401).json({ ok: false, error: 'unauthorized' });
     return;
   }
+  var user = session.name;
 
   if (req.method !== 'GET') {
     res.status(405).json({ ok: false, error: 'Method not allowed' });
     return;
   }
 
-  var results = await Promise.all([
+  await ensureAccountTables();
+
+  var queries = [
     safeQuery(
       'select count(*)::int as attempts, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts where nickname = $1',
       [user]
@@ -111,23 +130,29 @@ module.exports = async function handler(req, res) {
       [user]
     ),
     safeQuery(
-      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, avg_best_score, completed_sets from ranked where nickname = $1',
-      [user]
-    ),
-    safeQuery(
-      'select set_id, answers, graded, started_at, saved_at from exam_progress where nickname = $1',
-      [user]
+      'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1',
+      [session.user_id]
     ),
     getGlobalDashboardStats()
-  ]);
+  ];
+
+  var results = await Promise.all(queries);
 
   var summary = results[0];
   var bySet = results[1];
-  var myRank = results[2];
-  var progressRows = results[3];
-  var globalStats = results[4];
+  var progressRows = results[2];
+  var globalStats = results[3];
   var distributionRows = globalStats.distributionRows || [];
   var rankingRows = globalStats.rankingRows || [];
+  var myRankRow = (globalStats.rankByNickname || {})[user] || null;
+
+  if (!session.user_id) {
+    var fallbackProgressRows = await safeQuery(
+      'select set_id, answers, graded, started_at, saved_at from exam_progress where nickname = $1',
+      [user]
+    );
+    progressRows = fallbackProgressRows;
+  }
 
   if (summary.disabled) {
     res.json({ ok: true, disabled: true });
@@ -138,7 +163,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (bySet.error || myRank.error || progressRows.error || globalStats.error) {
+  if (bySet.error || progressRows.error || globalStats.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
   }
@@ -156,7 +181,6 @@ module.exports = async function handler(req, res) {
       completed_sets: row.completed_sets
     };
   });
-  var myRankRow = myRank.rows[0] || null;
   if (myRankRow) {
     myRankRow = {
       rank: myRankRow.rank,

@@ -3,6 +3,14 @@ const { query, exec } = require('./_db');
 
 let ready = false;
 
+async function execIfTableExists(sql) {
+  try {
+    await exec(sql, []);
+  } catch (err) {
+    if (!needsSchemaBootstrap(err)) throw err;
+  }
+}
+
 async function ensureAccountTables() {
   if (ready) return;
   await exec(
@@ -16,6 +24,24 @@ async function ensureAccountTables() {
   await exec(
     'create index if not exists idx_exam_progress_nickname on exam_progress(nickname)',
     []
+  );
+  await execIfTableExists(
+    'create index if not exists idx_exam_attempts_nickname on exam_attempts(nickname)'
+  );
+  await execIfTableExists(
+    'create index if not exists idx_exam_attempts_nickname_set_finished on exam_attempts(nickname, set_id, finished_at desc)'
+  );
+  await execIfTableExists(
+    'create index if not exists idx_exam_attempts_nickname_set_score on exam_attempts(nickname, set_id, score desc)'
+  );
+  await execIfTableExists(
+    'create index if not exists idx_exam_attempts_score on exam_attempts(score)'
+  );
+  await execIfTableExists(
+    'create index if not exists idx_exam_answers_set_question on exam_answers(set_id, question_id)'
+  );
+  await execIfTableExists(
+    'create index if not exists idx_exam_answers_attempt on exam_answers(attempt_id)'
   );
   ready = true;
 }

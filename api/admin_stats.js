@@ -1,5 +1,11 @@
 const { query } = require('./_db');
 
+const ADMIN_STATS_CACHE_TTL_MS = 60000;
+let adminStatsCache = {
+  fetchedAt: 0,
+  data: null
+};
+
 function getAdminToken(req) {
   var headerToken = req.headers['x-admin-token'];
   if (Array.isArray(headerToken)) headerToken = headerToken[0];
@@ -30,6 +36,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    if (adminStatsCache.data && (Date.now() - adminStatsCache.fetchedAt) < ADMIN_STATS_CACHE_TTL_MS) {
+      res.json(adminStatsCache.data);
+      return;
+    }
+
     var results = await Promise.all([
       run(
         'select count(*)::int as attempts, count(distinct nickname)::int as users, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts',
@@ -74,7 +85,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    res.json({
+    var response = {
       ok: true,
       overall: overall.rows[0] || { attempts: 0, users: 0, avg_score: 0, best_score: 0 },
       by_set: bySet.rows,
@@ -83,7 +94,12 @@ module.exports = async function handler(req, res) {
       by_provider_chapter: byProviderChapter.rows,
       question_stats: questionStats.rows,
       distribution: distribution.rows
-    });
+    };
+    adminStatsCache = {
+      fetchedAt: Date.now(),
+      data: response
+    };
+    res.json(response);
   } catch (err) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
   }
