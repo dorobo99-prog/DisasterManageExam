@@ -140,6 +140,63 @@
       letter-spacing: -0.374px; margin-bottom: 44px;
     }
 
+    .dashboard-card {
+      display: none;
+      background: linear-gradient(135deg, #ffffff 0%, #eef6ff 100%);
+      border: 1px solid rgba(0,113,227,0.12);
+      border-radius: 18px;
+      box-shadow: rgba(0,0,0,0.10) 0 14px 44px;
+      padding: 24px;
+      margin-bottom: 42px;
+    }
+    .dashboard-card.show { display: block; }
+    .dashboard-top {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 18px; margin-bottom: 18px; flex-wrap: wrap;
+    }
+    .dashboard-title {
+      font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 21px; font-weight: 600; letter-spacing: -0.28px;
+      color: var(--near-black); margin-bottom: 4px;
+    }
+    .dashboard-sub { font-size: 13px; color: var(--dim-text); letter-spacing: -0.224px; }
+    .dashboard-rank {
+      font-size: 13px; color: var(--link-light); background: rgba(0,113,227,0.08);
+      border-radius: 999px; padding: 7px 12px; letter-spacing: -0.224px;
+    }
+    .dashboard-metrics {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 18px;
+    }
+    .dashboard-metric {
+      background: rgba(255,255,255,0.72); border-radius: 14px;
+      padding: 15px 14px; border: 1px solid rgba(0,0,0,0.04);
+    }
+    .dashboard-metric strong {
+      display: block; font-size: 26px; letter-spacing: -0.28px;
+      color: var(--near-black); margin-bottom: 4px;
+    }
+    .dashboard-metric span { font-size: 12px; color: var(--dim-text); letter-spacing: -0.12px; }
+    .dashboard-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .dashboard-panel {
+      background: rgba(255,255,255,0.58); border-radius: 14px;
+      padding: 16px; border: 1px solid rgba(0,0,0,0.04);
+    }
+    .dashboard-panel h3 {
+      font-size: 13px; font-weight: 600; color: var(--near-black);
+      margin-bottom: 10px; letter-spacing: -0.12px;
+    }
+    .dashboard-row {
+      display: flex; justify-content: space-between; gap: 12px;
+      font-size: 13px; color: var(--body-text); letter-spacing: -0.224px;
+      padding: 7px 0; border-top: 1px solid rgba(0,0,0,0.05);
+    }
+    .dashboard-row:first-of-type { border-top: none; }
+    .dashboard-row span:last-child { color: var(--dim-text); white-space: nowrap; }
+    @media (max-width: 720px) {
+      .dashboard-metrics, .dashboard-lists { grid-template-columns: 1fr; }
+    }
+
     .group-label {
       font-size: 11px; font-weight: 600; letter-spacing: 0.6px;
       text-transform: uppercase; color: var(--dim-text);
@@ -452,6 +509,31 @@
     </div>
     <p class="select-sub">응시할 과목을 선택하세요.</p>
 
+    <div class="dashboard-card" id="dashboard-card">
+      <div class="dashboard-top">
+        <div>
+          <p class="dashboard-title">내 학습 대시보드</p>
+          <p class="dashboard-sub" id="dashboard-sub">응시 기록을 불러오는 중...</p>
+        </div>
+        <div class="dashboard-rank" id="dashboard-rank">순위 집계 중</div>
+      </div>
+      <div class="dashboard-metrics">
+        <div class="dashboard-metric"><strong id="dash-attempts">0</strong><span>총 응시</span></div>
+        <div class="dashboard-metric"><strong id="dash-avg">0점</strong><span>평균 점수</span></div>
+        <div class="dashboard-metric"><strong id="dash-best">0점</strong><span>최고 점수</span></div>
+      </div>
+      <div class="dashboard-lists">
+        <div class="dashboard-panel">
+          <h3>상위 랭킹</h3>
+          <div id="dashboard-leaderboard"></div>
+        </div>
+        <div class="dashboard-panel">
+          <h3>내 취약 문제</h3>
+          <div id="dashboard-weak"></div>
+        </div>
+      </div>
+    </div>
+
     <p class="group-label">Gemini 출제</p>
     <div class="set-grid" id="grid-gemini"></div>
 
@@ -618,6 +700,16 @@ async function api(path, options = {}) {
   return res.json();
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  }[ch]));
+}
+
 // ═══ LOGIN ═══════════════════════════════════════════════
 async function login() {
   const nameInp = document.getElementById("login-input");
@@ -665,7 +757,57 @@ function enterSelectScreen() {
   document.getElementById("select-greeting").textContent =
     currentUser + "님, 과목을 선택하세요.";
   renderSetCards();
+  loadDashboard();
   showScreen("select");
+}
+
+async function loadDashboard() {
+  const card = document.getElementById("dashboard-card");
+  if (!card) return;
+  card.classList.add("show");
+  document.getElementById("dashboard-sub").textContent = "응시 기록을 불러오는 중...";
+  document.getElementById("dashboard-rank").textContent = "순위 집계 중";
+
+  try {
+    const data = await api('/api/dashboard');
+    if (!data.ok || data.disabled) {
+      card.classList.remove("show");
+      return;
+    }
+    renderDashboard(data);
+  } catch(e) {
+    if (e.message !== "unauthorized") card.classList.remove("show");
+  }
+}
+
+function renderDashboard(data) {
+  const summary = data.summary || {};
+  document.getElementById("dashboard-sub").textContent =
+    summary.attempts > 0 ? "전체 응시자 기준 내 위치와 최근 통계입니다." : "아직 저장된 응시 기록이 없습니다.";
+  document.getElementById("dash-attempts").textContent = summary.attempts || 0;
+  document.getElementById("dash-avg").textContent = (summary.avg_score || 0) + "점";
+  document.getElementById("dash-best").textContent = (summary.best_score || 0) + "점";
+
+  const rank = data.my_rank;
+  document.getElementById("dashboard-rank").textContent = rank
+    ? `내 순위 ${rank.rank}위 · 평균최고 ${rank.avg_best_score}점`
+    : "아직 순위 없음";
+
+  const leaderEl = document.getElementById("dashboard-leaderboard");
+  const leaders = (data.leaderboard || []).slice(0, 5);
+  leaderEl.innerHTML = leaders.length ? leaders.map(r => `
+    <div class="dashboard-row">
+      <span>${r.rank}위 ${escapeHtml(r.nickname)}</span>
+      <span>${r.avg_best_score}점 · ${r.completed_sets}세트</span>
+    </div>`).join("") : `<div class="dashboard-row"><span>랭킹 데이터 없음</span><span>-</span></div>`;
+
+  const weakEl = document.getElementById("dashboard-weak");
+  const weak = (data.weak_questions || []).slice(0, 5);
+  weakEl.innerHTML = weak.length ? weak.map(r => `
+    <div class="dashboard-row">
+      <span>${r.set_id} · ${r.question_id}</span>
+      <span>정답률 ${r.correct_rate}%</span>
+    </div>`).join("") : `<div class="dashboard-row"><span>취약 문제 없음</span><span>-</span></div>`;
 }
 
 function renderSetCards() {
@@ -873,7 +1015,11 @@ async function submitExam() {
   try {
     const data = await api('/api/submit_exam', {
       method: 'POST',
-      body: JSON.stringify({ set_id: currentSet.id, answers: userAnswers })
+      body: JSON.stringify({
+        set_id: currentSet.id,
+        answers: userAnswers,
+        started_at: examStart.toISOString()
+      })
     });
     if (!data.ok) throw new Error(data.error || "채점 실패");
     graded = true;

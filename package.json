@@ -1,0 +1,9 @@
+{
+  "name": "disaster-manage-exam",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/ppg": "^1.0.1"
+  }
+}
