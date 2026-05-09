@@ -19,6 +19,48 @@ function beginExam(resume) {
   loadAndRenderExam(null);
 }
 
+async function reviewCompletedExam(savedData) {
+  currentSet = pendingSet;
+  pendingSet = null;
+  if (!currentSet || !savedData) return;
+
+  graded = true;
+  document.getElementById("fab").classList.remove("show");
+  document.getElementById("wrong-note-section").classList.remove("show");
+  userAnswers = Object.assign({}, savedData.answers || {});
+  answeredCount = Object.keys(userAnswers).length;
+  examStart = savedData.started_at ? new Date(savedData.started_at) : new Date();
+
+  await loadAndRenderExam(savedData);
+  showScreen("loading");
+  document.getElementById("loading-text").textContent =
+    currentSet.chapter + " 오답노트를 불러오는 중...";
+
+  try {
+    const review = await api('/api/review_exam', {
+      method: 'POST',
+      body: JSON.stringify({
+        set_id: currentSet.id,
+        answers: userAnswers,
+        question_ids: savedData.question_ids || questions.map(function(q) { return q.id; }),
+        include_questions: true
+      })
+    });
+    if (!review.ok) throw new Error(review.error || "오답노트 로드 실패");
+    if (Array.isArray(review.questions) && review.questions.length) {
+      questions = review.questions;
+      questionById = Object.fromEntries(questions.map(function(q) { return [q.id, q]; }));
+    }
+    renderExam(savedData);
+    gradeExam(review, { review: true });
+  } catch (e) {
+    if (e.message !== "unauthorized") {
+      showScreen("select");
+      alert("오답노트를 불러오지 못했습니다. 다시 시도해주세요.");
+    }
+  }
+}
+
 // ═══ LOAD JSON ════════════════════════════════════════════
 async function loadAndRenderExam(savedData) {
   showScreen("loading");

@@ -150,20 +150,52 @@ function makeSetCard(set, completions) {
   return card;
 }
 
+async function loadCompletedReview(setId, userName) {
+  if (!setId || !userName || currentUser !== userName) return null;
+  try {
+    const data = await api('/api/progress?set=' + encodeURIComponent(setId));
+    if (currentUser !== userName || !data.ok || !data.progress || !data.progress.graded) return null;
+    const progress = data.progress;
+    const ids = Array.isArray(progress.question_ids) ? progress.question_ids : [];
+    if (!ids.length) return null;
+    return {
+      answers: progress.answers || {},
+      question_ids: ids,
+      graded: true,
+      started_at: progress.started_at || null,
+      saved_at: progress.saved_at || null
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 async function onSelectSet(set) {
   pendingSet = set;
-  const done = getCompletions(currentUser)[set.id] || null;
+  const requestUser = currentUser;
+  const done = getCompletions(requestUser)[set.id] || null;
 
   if (done) {
+    const resumeBtn = document.getElementById("btn-modal-resume");
+    const restartBtn = document.getElementById("btn-modal-restart");
     document.getElementById("modal-title").textContent = "완료한 과목";
     document.getElementById("modal-desc").textContent  =
       done.score != null
-        ? `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n새로 다시 응시할 수 있습니다.`
-        : `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다.\n새로 다시 응시할 수 있습니다.`;
-    document.getElementById("btn-modal-resume").style.display  = "none";
-    document.getElementById("btn-modal-restart").textContent   = "다시 응시하기";
+        ? `${requestUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n재응시하거나 오답노트를 볼 수 있습니다.`
+        : `${requestUser}님은 "${set.chapter}"을(를) 이미 완료했습니다.\n재응시하거나 오답노트를 볼 수 있습니다.`;
+    resumeBtn.style.display = "none";
+    resumeBtn.textContent = "오답노트 보기";
+    restartBtn.textContent = "다시 응시하기";
+    modalResumeAction = () => {};
     modalRestartAction = () => { beginExam(false); closeModal(); };
     showModal();
+
+    const reviewData = await loadCompletedReview(set.id, requestUser);
+    if (currentUser !== requestUser || pendingSet !== set) return;
+    if (!reviewData) return;
+
+    resumeBtn.style.display = "";
+    modalResumeAction = () => { reviewCompletedExam(reviewData); closeModal(); };
   } else {
     beginExam(false);
   }
