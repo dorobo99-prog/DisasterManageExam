@@ -53,6 +53,21 @@ async function createUser(nickname, pin) {
   return { id: id, nickname: nickname };
 }
 
+async function resetUserPinAndProgress(user, pin) {
+  await ensureAccountTables();
+  var salt = crypto.randomBytes(16).toString('hex');
+  var pinHash = hashPin(pin, salt);
+  await exec(
+    'update exam_users set pin_salt = $1, pin_hash = $2, updated_at = now() where id = $3',
+    [salt, pinHash, user.id]
+  );
+  await exec(
+    'delete from exam_progress where user_id = $1',
+    [user.id]
+  );
+  return { id: user.id, nickname: user.nickname };
+}
+
 function verifyPin(user, pin) {
   if (!user) return false;
   var candidate = hashPin(pin, user.pin_salt);
@@ -65,5 +80,6 @@ module.exports = {
   isValidPin,
   findUserByNickname,
   createUser,
+  resetUserPinAndProgress,
   verifyPin
 };

@@ -4,6 +4,7 @@ const {
   isValidPin,
   findUserByNickname,
   createUser,
+  resetUserPinAndProgress,
   verifyPin
 } = require('./_account');
 
@@ -20,6 +21,7 @@ module.exports = async function handler(req, res) {
   const params = new URLSearchParams(body);
   const name   = normalizeNickname(params.get('name'));
   const pin    = (params.get('pin') || '').trim();
+  const resetPin = params.get('reset_pin') === '1';
 
   if (!name) {
     res.status(400).json({ ok: false, error: '닉네임을 입력하세요.' });
@@ -39,10 +41,17 @@ module.exports = async function handler(req, res) {
   }
 
   if (!verifyPin(user, pin)) {
+    if (resetPin) {
+      user = await resetUserPinAndProgress(user, pin);
+      setAuth(res, user.nickname, user.id);
+      res.json({ ok: true, name: user.nickname, is_new: false, reset: true });
+      return;
+    }
+
     res.status(409).json({
       ok: false,
       code: 'pin_mismatch',
-      error: '이 닉네임으로 저장된 이어풀기 기록이 있습니다. 처음 설정한 숫자 네 자리를 입력해야 이어서 풀 수 있습니다.'
+      error: '이 닉네임으로 저장된 이어풀기 기록이 있습니다. 숫자 네 자리가 다르면 기존 이어풀기 기록을 삭제하고 처음부터 시작해야 합니다.'
     });
     return;
   }
