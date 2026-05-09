@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
   const name   = (params.get('name')     || '').trim();
 
   if (!name) {
-    res.status(400).json({ ok: false, error: '이름을 입력하세요.' });
+    res.status(400).json({ ok: false, error: '닉네임을 입력하세요.' });
     return;
   }
 
