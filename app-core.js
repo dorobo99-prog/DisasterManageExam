@@ -40,6 +40,9 @@ function saveProgress(options = {}) {
 function flushProgressOnLeave() {
 }
 
+function cancelQueuedProgressRemote() {
+}
+
 function loadProgress(name, setId) {
   return null;
 }

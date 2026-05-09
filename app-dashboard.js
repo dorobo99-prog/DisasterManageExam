@@ -18,7 +18,7 @@ async function loadDashboard() {
   document.getElementById("dashboard-sub").textContent = "응시 기록을 불러오는 중...";
   document.getElementById("dashboard-rank").textContent = "순위 집계 중";
 
-  if (isFreshUserCache(dashboardCache, DASHBOARD_CACHE_TTL_MS, requestUser)) {
+  if (dashboardCache.user === requestUser && isFreshCache(dashboardCache, DASHBOARD_CACHE_TTL_MS)) {
     renderDashboard(dashboardCache.data, requestUser);
     return dashboardCache.data;
   }
