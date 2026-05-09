@@ -926,28 +926,43 @@ function makeSetCard(set) {
 }
 
 async function fetchServerProgress(setId) {
+  const state = await fetchServerProgressState(setId);
+  return state.found ? state.progress : null;
+}
+
+async function fetchServerProgressState(setId) {
   try {
     const data = await api('/api/progress?set=' + encodeURIComponent(setId));
     if (data.ok && data.progress && !data.progress.graded) {
       return {
-        answers: data.progress.answers || {},
-        graded: !!data.progress.graded,
-        started_at: data.progress.started_at || null,
-        saved_at: data.progress.saved_at || null
+        found: true,
+        progress: {
+          answers: data.progress.answers || {},
+          graded: !!data.progress.graded,
+          started_at: data.progress.started_at || null,
+          saved_at: data.progress.saved_at || null
+        }
       };
     }
-  } catch(e) {}
-  return null;
+  } catch(e) {
+    return { found: false, progress: null, unknown: true };
+  }
+  return { found: false, progress: null };
 }
 
 async function syncServerProgressForCards() {
   if (!currentUser) return;
   let changed = false;
   for (const set of EXAM_SETS) {
-    const serverProg = await fetchServerProgress(set.id);
-    if (serverProg) {
+    const state = await fetchServerProgressState(set.id);
+    if (state.found) {
       try {
-        localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(serverProg));
+        localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(state.progress));
+        changed = true;
+      } catch(e) {}
+    } else if (!state.unknown && loadProgress(currentUser, set.id)) {
+      try {
+        localStorage.removeItem(progressKey(currentUser, set.id));
         changed = true;
       } catch(e) {}
     }
@@ -957,11 +972,13 @@ async function syncServerProgressForCards() {
 
 async function onSelectSet(set) {
   pendingSet = set;
-  const serverProg = await fetchServerProgress(set.id);
-  if (serverProg) {
-    try { localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(serverProg)); } catch(e) {}
+  const serverState = await fetchServerProgressState(set.id);
+  if (serverState.found) {
+    try { localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(serverState.progress)); } catch(e) {}
+  } else if (!serverState.unknown) {
+    try { localStorage.removeItem(progressKey(currentUser, set.id)); } catch(e) {}
   }
-  const prog = serverProg || loadProgress(currentUser, set.id);
+  const prog = serverState.found ? serverState.progress : (serverState.unknown ? loadProgress(currentUser, set.id) : null);
   const done = getCompletions(currentUser)[set.id];
 
   if (done) {
