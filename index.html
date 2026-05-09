@@ -649,6 +649,8 @@ let userAnswers = {};
 let examStart   = null;
 let graded      = false;
 let pendingSet  = null;  // set waiting for modal confirmation
+let modalResumeAction = () => { beginExam(true); closeModal(); };
+let modalRestartAction = () => { beginExam(false); closeModal(); };
 
 // ═══ STORAGE ═════════════════════════════════════════════
 const LAST_USER_KEY = "exam__last_user";
@@ -966,7 +968,7 @@ async function fetchServerProgress(setId) {
 async function fetchServerProgressState(setId) {
   try {
     const data = await api('/api/progress?set=' + encodeURIComponent(setId));
-    if (data.ok && data.progress && !data.progress.graded) {
+    if (data.ok && data.progress) {
       return {
         found: true,
         progress: {
@@ -1016,12 +1018,18 @@ async function onSelectSet(set) {
   const done = getCompletions(currentUser)[set.id];
 
   if (done) {
-    // 완료한 과목 — 재응시 확인
-    document.getElementById("modal-title").textContent = "이미 완료한 과목";
+    // 완료한 과목 — 재응시 또는 오답노트 확인
+    const canReview = prog && prog.graded && (prog.question_ids || []).length;
+    document.getElementById("modal-title").textContent = "완료한 과목";
     document.getElementById("modal-desc").textContent  =
-      `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n다시 응시하시겠습니까?`;
-    document.getElementById("btn-modal-resume").style.display  = "none";
+      canReview
+        ? `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n오답노트를 다시 보거나 새로 응시할 수 있습니다.`
+        : `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n이전 상세 답안 기록이 없어 재응시만 가능합니다.`;
+    document.getElementById("btn-modal-resume").style.display  = canReview ? "" : "none";
+    document.getElementById("btn-modal-resume").textContent    = "오답노트 보기 / 결과 다운로드";
     document.getElementById("btn-modal-restart").textContent   = "다시 응시하기";
+    modalResumeAction = () => { reviewCompletedExam(prog); closeModal(); };
+    modalRestartAction = () => { beginExam(false); closeModal(); };
     showModal();
   } else if (prog && !prog.graded) {
     // 진행 중인 과목 — 이어서/처음부터
@@ -1030,7 +1038,10 @@ async function onSelectSet(set) {
     document.getElementById("modal-desc").textContent  =
       `${currentUser}님의 저장된 진행 기록이 있습니다.\n(${cnt}문제 완료)`;
     document.getElementById("btn-modal-resume").style.display = "";
+    document.getElementById("btn-modal-resume").textContent   = "이어서 풀기";
     document.getElementById("btn-modal-restart").textContent  = "처음부터 다시";
+    modalResumeAction = () => { beginExam(true); closeModal(); };
+    modalRestartAction = () => { beginExam(false); closeModal(); };
     showModal();
   } else {
     // 처음 응시
@@ -1046,8 +1057,8 @@ function closeModal() {
 }
 
 // modal button wiring
-wireTouch("btn-modal-resume",  () => { beginExam(true);  closeModal(); });
-wireTouch("btn-modal-restart", () => { beginExam(false); closeModal(); });
+wireTouch("btn-modal-resume",  () => modalResumeAction());
+wireTouch("btn-modal-restart", () => modalRestartAction());
 
 document.getElementById("modal-overlay").addEventListener("click", function(e) {
   if (e.target === this) closeModal();
@@ -1096,6 +1107,43 @@ async function loadAndRenderExam(savedData) {
   }
   renderExam(savedData);
   showScreen("exam");
+}
+
+async function reviewCompletedExam(savedData) {
+  currentSet = pendingSet;
+  pendingSet = null;
+  graded = true;
+  userAnswers = savedData.answers || {};
+  examStart = savedData.started_at ? new Date(savedData.started_at) : new Date();
+  document.getElementById("fab").classList.remove("show");
+  document.getElementById("wrong-note-section").classList.remove("show");
+
+  showScreen("loading");
+  document.getElementById("loading-text").textContent = "오답노트를 불러오는 중...";
+
+  try {
+    const ids = savedData.question_ids || [];
+    const data = await api('/api/get_exam?set=' + currentSet.id + '&ids=' + encodeURIComponent(ids.join(',')));
+    if (!data.ok) throw new Error(data.error || "문제 로드 실패");
+    questions = data.questions;
+    renderExam(savedData);
+
+    const review = await api('/api/review_exam', {
+      method: 'POST',
+      body: JSON.stringify({
+        set_id: currentSet.id,
+        answers: userAnswers,
+        question_ids: ids
+      })
+    });
+    if (!review.ok) throw new Error(review.error || "오답노트 로드 실패");
+    gradeExam(review, { review: true });
+  } catch(e) {
+    if (e.message !== "unauthorized") {
+      document.getElementById("loading-text").textContent =
+        "오답노트를 불러오지 못했습니다. 다시 시도해주세요.";
+    }
+  }
 }
 
 // ═══ RENDER ══════════════════════════════════════════════
@@ -1202,7 +1250,7 @@ async function submitExam() {
   }
 }
 
-function gradeExam(serverData) {
+function gradeExam(serverData, options = {}) {
   const { score, correct, wrong, total, results } = serverData;
 
   results.forEach(r => {
@@ -1223,7 +1271,7 @@ function gradeExam(serverData) {
   });
 
   markCompletion(currentUser, currentSet.id, score, correct, total);
-  saveProgress();
+  if (!options.review) saveProgress();
 
   const fullResults = results.map(r => {
     const q = questions.find(q => q.id === r.id);
