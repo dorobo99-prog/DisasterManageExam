@@ -53,7 +53,7 @@ async function loadDashboard() {
 }
 
 function renderDashboard(data) {
-  syncServerCompletions(data.by_set || []);
+  syncServerCompletions(data.by_set || [], data.progress || {});
 
   const summary = data.summary || {};
   document.getElementById("dashboard-sub").textContent =
@@ -77,14 +77,24 @@ function renderDashboard(data) {
     </div>`).join("") : `<div class="dashboard-row"><span>랭킹 데이터 없음</span><span>-</span></div>`;
 }
 
-function syncServerCompletions(rows) {
+function syncServerCompletions(rows, progressMap = {}) {
   if (!currentUser || !Array.isArray(rows)) return;
   const allowed = new Set(EXAM_SETS.map(set => set.id));
   const completions = getCompletions(currentUser);
   let changed = false;
 
+  EXAM_SETS.forEach(function(set) {
+    const progress = progressMap[set.id] || null;
+    if ((!progress || !progress.graded) && completions[set.id]) {
+      delete completions[set.id];
+      changed = true;
+    }
+  });
+
   rows.forEach(row => {
     if (!allowed.has(row.set_id)) return;
+    const progress = progressMap[row.set_id] || null;
+    if (!progress || !progress.graded) return;
     const next = {
       score: row.best_score || row.avg_score || 0,
       correct: null,
@@ -126,17 +136,19 @@ function makeSetCard(set, completions, progressMap) {
   const card = document.createElement("div");
   card.className = "set-card";
 
-  const done  = completions[set.id];
   const prog  = progressMap[set.id];
   const inProg = prog && !prog.graded;
+  const done  = prog && prog.graded
+    ? (completions[set.id] || { score: "-", correct: null, total: null, at: prog.saved_at || null })
+    : null;
 
   let badge = "";
-  if (done) {
-    badge = `<span class="set-card-status done">완료 ${done.score}점</span>`;
-  } else if (inProg) {
+  if (inProg) {
     const cnt = Object.keys(prog.answers || {}).length;
     const total = (prog.question_ids || []).length || set.count;
     badge = `<span class="set-card-status in-prog">${cnt}/${total} 진행중</span>`;
+  } else if (done) {
+    badge = `<span class="set-card-status done">완료 ${done.score}점</span>`;
   }
 
   card.innerHTML = `
@@ -217,9 +229,22 @@ async function getProgressForSet(setId) {
 async function onSelectSet(set) {
   pendingSet = set;
   const prog = await getProgressForSet(set.id);
-  const done = getCompletions(currentUser)[set.id];
+  const done = prog && prog.graded
+    ? (getCompletions(currentUser)[set.id] || { score: "-", correct: null, total: null, at: prog.saved_at || null })
+    : null;
 
-  if (done) {
+  if (prog && !prog.graded) {
+    const cnt = Object.keys(prog.answers || {}).length;
+    document.getElementById("modal-title").textContent = "이어서 풀기";
+    document.getElementById("modal-desc").textContent  =
+      `${currentUser}님의 저장된 진행 기록이 있습니다.\n(${cnt}문제 완료)`;
+    document.getElementById("btn-modal-resume").style.display = "";
+    document.getElementById("btn-modal-resume").textContent   = "이어서 풀기";
+    document.getElementById("btn-modal-restart").textContent  = "처음부터 다시";
+    modalResumeAction = () => { beginExam(true); closeModal(); };
+    modalRestartAction = () => { beginExam(false); closeModal(); };
+    showModal();
+  } else if (done) {
     const canReview = prog && prog.graded && (prog.question_ids || []).length;
     document.getElementById("modal-title").textContent = "완료한 과목";
     document.getElementById("modal-desc").textContent  =
@@ -230,17 +255,6 @@ async function onSelectSet(set) {
     document.getElementById("btn-modal-resume").textContent    = "오답노트 보기 / 결과 다운로드";
     document.getElementById("btn-modal-restart").textContent   = "다시 응시하기";
     modalResumeAction = () => { reviewCompletedExam(prog); closeModal(); };
-    modalRestartAction = () => { beginExam(false); closeModal(); };
-    showModal();
-  } else if (prog && !prog.graded) {
-    const cnt = Object.keys(prog.answers || {}).length;
-    document.getElementById("modal-title").textContent = "이어서 풀기";
-    document.getElementById("modal-desc").textContent  =
-      `${currentUser}님의 저장된 진행 기록이 있습니다.\n(${cnt}문제 완료)`;
-    document.getElementById("btn-modal-resume").style.display = "";
-    document.getElementById("btn-modal-resume").textContent   = "이어서 풀기";
-    document.getElementById("btn-modal-restart").textContent  = "처음부터 다시";
-    modalResumeAction = () => { beginExam(true); closeModal(); };
     modalRestartAction = () => { beginExam(false); closeModal(); };
     showModal();
   } else {
