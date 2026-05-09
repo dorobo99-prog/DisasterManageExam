@@ -1,5 +1,5 @@
 const { getUser, readBody } = require('./_auth');
-const { getAnswer, isAllowedPublicSet } = require('./_exam_sets');
+const { getAnswer, getQuestionsByIds, isAllowedPublicSet } = require('./_exam_sets');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -18,6 +18,7 @@ module.exports = async function handler(req, res) {
   var setId = payload.set_id || '';
   var answers = payload.answers || {};
   var questionIds = Array.isArray(payload.question_ids) ? payload.question_ids : Object.keys(answers);
+  var includeQuestions = !!payload.include_questions;
 
   if (!isAllowedPublicSet(setId)) {
     res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
@@ -47,5 +48,7 @@ module.exports = async function handler(req, res) {
 
   var total = results.length;
   var score = total > 0 ? Math.round(correct / total * 100) : 0;
-  res.json({ ok: true, score: score, correct: correct, wrong: total - correct, total: total, results: results });
+  var response = { ok: true, score: score, correct: correct, wrong: total - correct, total: total, results: results };
+  if (includeQuestions) response.questions = getQuestionsByIds(questionIds);
+  res.json(response);
 };

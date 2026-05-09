@@ -748,6 +748,7 @@ const EXAM_SETS = [
 let currentUser = "";
 let currentSet  = null;
 let questions   = [];
+let questionById = {};
 let userAnswers = {};
 let examStart   = null;
 let graded      = false;
@@ -757,6 +758,7 @@ let modalRestartAction = () => { beginExam(false); closeModal(); };
 let mobileProgressOpen = false;
 let remoteSaveTimer = null;
 let queuedRemoteSave = null;
+let progressSyncPromise = null;
 
 // ═══ STORAGE ═════════════════════════════════════════════
 const LAST_USER_KEY = "exam__last_user";
@@ -1099,37 +1101,57 @@ async function fetchServerProgressState(setId) {
 async function syncServerProgressForCards() {
   if (!currentUser) return;
   let changed = false;
-  const states = await Promise.all(EXAM_SETS.map(async function(set) {
-    return { set: set, state: await fetchServerProgressState(set.id) };
-  }));
+  progressSyncPromise = api('/api/progress_summary')
+    .then(function(data) {
+      if (!data.ok || !data.progress) return;
+      EXAM_SETS.forEach(function(set) {
+        const progress = data.progress[set.id] || null;
+        if (progress) {
+          try {
+            localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(progress));
+            changed = true;
+          } catch(e) {}
+        } else if (loadProgress(currentUser, set.id)) {
+          try {
+            localStorage.removeItem(progressKey(currentUser, set.id));
+            changed = true;
+          } catch(e) {}
+        }
+      });
+      if (changed) renderSetCards();
+    })
+    .catch(function(e) {
+      if (e.message !== "unauthorized") return null;
+    })
+    .finally(function() {
+      progressSyncPromise = null;
+    });
+  return progressSyncPromise;
+}
 
-  states.forEach(function(item) {
-    const set = item.set;
-    const state = item.state;
+async function getProgressForSet(setId) {
+  let progress = loadProgress(currentUser, setId);
+  if (!progress && progressSyncPromise) {
+    try {
+      await progressSyncPromise;
+      progress = loadProgress(currentUser, setId);
+    } catch(e) {}
+  }
+  if (!progress) {
+    const state = await fetchServerProgressState(setId);
     if (state.found) {
-      try {
-        localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(state.progress));
-        changed = true;
-      } catch(e) {}
-    } else if (!state.unknown && loadProgress(currentUser, set.id)) {
-      try {
-        localStorage.removeItem(progressKey(currentUser, set.id));
-        changed = true;
-      } catch(e) {}
+      progress = state.progress;
+      try { localStorage.setItem(progressKey(currentUser, setId), JSON.stringify(progress)); } catch(e) {}
+    } else if (!state.unknown) {
+      try { localStorage.removeItem(progressKey(currentUser, setId)); } catch(e) {}
     }
-  });
-  if (changed) renderSetCards();
+  }
+  return progress;
 }
 
 async function onSelectSet(set) {
   pendingSet = set;
-  const serverState = await fetchServerProgressState(set.id);
-  if (serverState.found) {
-    try { localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(serverState.progress)); } catch(e) {}
-  } else if (!serverState.unknown) {
-    try { localStorage.removeItem(progressKey(currentUser, set.id)); } catch(e) {}
-  }
-  const prog = serverState.found ? serverState.progress : (serverState.unknown ? loadProgress(currentUser, set.id) : null);
+  const prog = await getProgressForSet(set.id);
   const done = getCompletions(currentUser)[set.id];
 
   if (done) {
@@ -1238,20 +1260,18 @@ async function reviewCompletedExam(savedData) {
 
   try {
     const ids = savedData.question_ids || [];
-    const data = await api('/api/get_exam?set=' + currentSet.id + '&ids=' + encodeURIComponent(ids.join(',')));
-    if (!data.ok) throw new Error(data.error || "문제 로드 실패");
-    questions = data.questions;
-    renderExam(savedData);
-
     const review = await api('/api/review_exam', {
       method: 'POST',
       body: JSON.stringify({
         set_id: currentSet.id,
         answers: userAnswers,
-        question_ids: ids
+        question_ids: ids,
+        include_questions: true
       })
     });
     if (!review.ok) throw new Error(review.error || "오답노트 로드 실패");
+    questions = review.questions || [];
+    renderExam(savedData);
     gradeExam(review, { review: true });
   } catch(e) {
     if (e.message !== "unauthorized") {
@@ -1270,6 +1290,7 @@ function renderExam(savedData) {
   document.getElementById("exam-title").textContent = currentSet.chapter;
   document.getElementById("exam-meta").textContent  =
     currentUser + "님 · " + questions.length + "문항";
+  questionById = Object.fromEntries(questions.map(q => [q.id, q]));
 
   const container = document.getElementById("questions-container");
   container.innerHTML = "";
@@ -1432,7 +1453,7 @@ function gradeExam(serverData, options = {}) {
   const { score, correct, wrong, total, results } = serverData;
 
   results.forEach(r => {
-    const q = questions.find(q => q.id === r.id);
+    const q = questionById[r.id];
     if (!q) return;
     q.options.forEach(o => {
       const li = document.getElementById(`oi-${r.id}-${o.no}`);
@@ -1452,7 +1473,7 @@ function gradeExam(serverData, options = {}) {
   if (!options.review) saveProgress();
 
   const fullResults = results.map(r => {
-    const q = questions.find(q => q.id === r.id);
+    const q = questionById[r.id];
     return {
       question_no: q?.question_no, id: r.id,
       question_text: q?.question_text,

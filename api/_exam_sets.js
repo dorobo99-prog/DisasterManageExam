@@ -11,6 +11,8 @@ const CHAPTERS = {
 const PUBLIC_SETS = ['ch1', 'ch2', 'ch3', 'all'];
 const sourceCache = {};
 const poolCache = {};
+let questionIndex = null;
+let answerIndex = null;
 
 function isAllowedPublicSet(setId) {
   return PUBLIC_SETS.indexOf(setId) >= 0;
@@ -103,28 +105,11 @@ function selectQuestions(setId) {
 }
 
 function getQuestionsByIds(questionIds) {
-  var wanted = new Set(questionIds || []);
-  var byId = {};
-  var chapters = Array.from(new Set((questionIds || []).map(function(id) {
-    var meta = parseQuestionId(id);
-    return meta && meta.chapter;
-  }).filter(Boolean)));
-
-  chapters.forEach(function(chapter) {
-    getQuestionPool(chapter).forEach(function(question) {
-      if (wanted.has(question.id)) byId[question.id] = question;
-    });
-  });
-  return (questionIds || []).map(function(id) { return byId[id]; }).filter(Boolean);
+  var index = getQuestionIndex();
+  return (questionIds || []).map(function(id) { return index[id]; }).filter(Boolean);
 }
 
-function getAnswer(questionId) {
-  var meta = parseQuestionId(questionId);
-  if (!meta) return null;
-  var number = parseInt(String(questionId).slice(-3), 10);
-  var source = readSource(meta.source_set);
-  var raw = source.find(function(item) { return parseInt(item['문항번호'], 10) === number; });
-  if (!raw) return null;
+function normalizeAnswer(raw, meta) {
   return {
     provider: meta.provider,
     chapter: meta.chapter,
@@ -135,6 +120,37 @@ function getAnswer(questionId) {
       option_rationale: raw['선택지_근거'] || {}
     }
   };
+}
+
+function getQuestionIndex() {
+  if (questionIndex) return questionIndex;
+  questionIndex = {};
+  Object.keys(CHAPTERS).forEach(function(chapter) {
+    getQuestionPool(chapter).forEach(function(question) {
+      questionIndex[question.id] = question;
+    });
+  });
+  return questionIndex;
+}
+
+function getAnswerIndex() {
+  if (answerIndex) return answerIndex;
+  answerIndex = {};
+  PROVIDERS.forEach(function(provider) {
+    Object.keys(CHAPTERS).forEach(function(chapter) {
+      var sourceSet = provider + '_' + chapter;
+      readSource(sourceSet).forEach(function(raw) {
+        var id = sourceSet + '_' + String(raw['문항번호']).padStart(3, '0');
+        var meta = parseQuestionId(id);
+        if (meta) answerIndex[id] = normalizeAnswer(raw, meta);
+      });
+    });
+  });
+  return answerIndex;
+}
+
+function getAnswer(questionId) {
+  return getAnswerIndex()[questionId] || null;
 }
 
 function publicSetMeta(setId) {
