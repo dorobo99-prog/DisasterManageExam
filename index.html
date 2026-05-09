@@ -93,11 +93,6 @@
       letter-spacing: -0.224px; margin-bottom: 36px;
     }
     .login-field { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-    .login-error {
-      display: none; font-size: 13px; color: var(--red);
-      letter-spacing: -0.224px; margin-top: -4px;
-    }
-    .login-error.show { display: block; }
     .name-input {
       font-family: inherit; font-size: 17px;
       padding: 13px 20px; width: 100%; max-width: 320px;
@@ -437,10 +432,6 @@
       <input type="text" class="name-input" id="login-input"
         placeholder="이름 입력" maxlength="30"
         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <input type="password" class="name-input" id="login-pw"
-        placeholder="비밀번호 입력" maxlength="20"
-        autocomplete="off">
-      <p class="login-error" id="login-error">비밀번호가 올바르지 않습니다.</p>
       <button class="btn-primary" id="btn-login" type="button">시작하기</button>
     </div>
   </div>
@@ -630,16 +621,9 @@ async function api(path, options = {}) {
 // ═══ LOGIN ═══════════════════════════════════════════════
 async function login() {
   const nameInp = document.getElementById("login-input");
-  const pwInp   = document.getElementById("login-pw");
-  const errMsg  = document.getElementById("login-error");
   const name = nameInp.value.trim();
-  const pw   = pwInp.value;
-
-  errMsg.classList.remove("show");
-  errMsg.textContent = "비밀번호가 올바르지 않습니다.";
 
   if (!name) { nameInp.focus(); nameInp.style.borderColor = "var(--red)"; return; }
-  if (!pw)   { pwInp.focus();   pwInp.style.borderColor   = "var(--red)"; return; }
 
   const btn = document.getElementById("btn-login");
   btn.disabled = true; btn.textContent = "확인 중...";
@@ -648,22 +632,19 @@ async function login() {
     const data = await api('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'name=' + encodeURIComponent(name) + '&password=' + encodeURIComponent(pw)
+      body: 'name=' + encodeURIComponent(name)
     });
     if (!data.ok) {
-      pwInp.value = ""; pwInp.style.borderColor = "var(--red)";
-      errMsg.classList.add("show"); pwInp.focus();
+      nameInp.style.borderColor = "var(--red)";
+      nameInp.focus();
       return;
     }
-    pwInp.style.borderColor = ""; nameInp.style.borderColor = "";
+    nameInp.style.borderColor = "";
     currentUser = name;
     try { localStorage.setItem(LAST_USER_KEY, name); } catch(e) {}
     enterSelectScreen();
   } catch(e) {
-    if (e.message !== "unauthorized") {
-      errMsg.textContent = "서버 연결에 실패했습니다.";
-      errMsg.classList.add("show");
-    }
+    if (e.message !== "unauthorized") alert("서버 연결에 실패했습니다.");
   } finally {
     btn.disabled = false; btn.textContent = "시작하기";
   }
@@ -673,10 +654,8 @@ async function changeUser() {
   try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
   currentUser = "";
   const nameInp = document.getElementById("login-input");
-  const pwInp   = document.getElementById("login-pw");
-  nameInp.value = ""; pwInp.value = "";
-  nameInp.style.borderColor = ""; pwInp.style.borderColor = "";
-  document.getElementById("login-error").classList.remove("show");
+  nameInp.value = "";
+  nameInp.style.borderColor = "";
   showScreen("login");
   setTimeout(() => nameInp.focus(), 300);
 }
@@ -1050,13 +1029,8 @@ wireTouch("btn-login",  login);
 wireTouch("btn-submit", submitExam);
 
 document.getElementById("login-input").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") document.getElementById("login-pw").focus();
-  this.style.borderColor = "";
-});
-document.getElementById("login-pw").addEventListener("keydown", function(e) {
   if (e.key === "Enter") login();
   this.style.borderColor = "";
-  document.getElementById("login-error").classList.remove("show");
 });
 
 // ═══ INIT ════════════════════════════════════════════════
