@@ -100,13 +100,8 @@ function renderExam(savedData) {
   questionById = Object.fromEntries(questions.map(q => [q.id, q]));
 
   const container = document.getElementById("questions-container");
-  container.innerHTML = "";
 
-  questions.forEach((q, idx) => {
-    const card = document.createElement("div");
-    card.className = "q-card";
-    card.id = "qc-" + q.id;
-
+  container.innerHTML = questions.map((q, idx) => {
     const opts = q.options.map(o => `
       <li class="opt-item" id="oi-${q.id}-${o.no}">
         <input type="radio" name="q_${q.id}" id="r_${q.id}_${o.no}" value="${o.no}">
@@ -116,7 +111,8 @@ function renderExam(savedData) {
         </label>
       </li>`).join("");
 
-    card.innerHTML = `
+    return `
+      <div class="q-card" id="qc-${q.id}">
       <div class="q-meta">
         <span class="q-num">문제 ${idx + 1}</span>
         <span class="q-difficulty">난이도 ${q.difficulty || "-"}</span>
@@ -126,9 +122,9 @@ function renderExam(savedData) {
       <div class="exp-box" id="exp-${q.id}">
         <p class="exp-title">해설</p>
         <p class="exp-text"></p>
+      </div>
       </div>`;
-    container.appendChild(card);
-  });
+  }).join("");
 
   if (savedData) restoreAnswers();
   renderProgressTracker();
@@ -299,7 +295,7 @@ function gradeExam(serverData, options = {}) {
 
   markCompletion(currentUser, currentSet.id, score, correct, total);
   invalidateSelectCaches();
-  if (!options.review) saveProgress();
+  if (!options.review) saveProgress({ remote: !serverData.stats_saved });
 
   const fullResults = results.map(r => {
     const q = questionById[r.id];

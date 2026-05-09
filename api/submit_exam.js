@@ -1,10 +1,11 @@
-const { getUser, readBody } = require('./_auth');
+const { getSession, readBody } = require('./_auth');
 const { transaction } = require('./_db');
 const { getAnswer, isAllowedPublicSet, publicSetMeta } = require('./_exam_sets');
 
-async function saveAttemptStats(user, setId, score, correct, total, results, startedAt) {
+async function saveAttemptStats(session, setId, score, correct, total, results, startedAt, answers, questionIds) {
   var meta = publicSetMeta(setId);
   var saved = false;
+  var user = session.name;
 
   try {
     var txResult = await transaction(async function(tx) {
@@ -43,6 +44,18 @@ async function saveAttemptStats(user, setId, score, correct, total, results, sta
           ...params
         );
       }
+      if (session.user_id) {
+        var storedAnswers = Object.assign({}, answers || {});
+        storedAnswers.__question_ids = questionIds || [];
+        await tx.exec(
+          'insert into exam_progress (user_id, nickname, set_id, answers, graded, started_at, saved_at) values ($1, $2, $3, $4::jsonb, true, $5, now()) on conflict (user_id, set_id) do update set answers = excluded.answers, graded = true, started_at = coalesce(excluded.started_at, exam_progress.started_at), saved_at = now()',
+          session.user_id,
+          user,
+          setId,
+          JSON.stringify(storedAnswers),
+          startedAt || null
+        );
+      }
       return true;
     });
     saved = txResult === true;
@@ -57,8 +70,8 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
 
-  var user = getUser(req);
-  if (!user) {
+  var session = getSession(req);
+  if (!session || !session.name) {
     res.status(401).json({ ok: false, error: 'unauthorized' });
     return;
   }
@@ -107,6 +120,6 @@ module.exports = async function handler(req, res) {
   total = results.length;
 
   var score = total > 0 ? Math.round(correct / total * 100) : 0;
-  var statsSaved = await saveAttemptStats(user, set_id, score, correct, total, results, startedAt);
+  var statsSaved = await saveAttemptStats(session, set_id, score, correct, total, results, startedAt, answers, questionIds);
   res.json({ ok: true, score: score, correct: correct, wrong: total - correct, total: total, results: results, stats_saved: statsSaved });
 };

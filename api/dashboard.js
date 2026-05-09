@@ -6,9 +6,9 @@ const GLOBAL_DASHBOARD_CACHE_TTL_MS = 60000;
 let globalDashboardCache = {
   fetchedAt: 0,
   distributionRows: null,
-  rankingRows: null,
-  rankByNickname: null
+  rankingRows: null
 };
+let userRankCache = {};
 
 async function safeQuery(sql, params) {
   try {
@@ -40,7 +40,6 @@ function isFreshGlobalDashboardCache() {
   return !!(
     globalDashboardCache.distributionRows &&
     globalDashboardCache.rankingRows &&
-    globalDashboardCache.rankByNickname &&
     (Date.now() - globalDashboardCache.fetchedAt) < GLOBAL_DASHBOARD_CACHE_TTL_MS
   );
 }
@@ -50,7 +49,6 @@ async function getGlobalDashboardStats() {
     return {
       distributionRows: globalDashboardCache.distributionRows,
       rankingRows: globalDashboardCache.rankingRows,
-      rankByNickname: globalDashboardCache.rankByNickname,
       error: null
     };
   }
@@ -61,7 +59,7 @@ async function getGlobalDashboardStats() {
       []
     ),
     safeQuery(
-      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, nickname, avg_best_score, completed_sets from ranked order by rank, nickname',
+      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, nickname, avg_best_score, completed_sets from ranked order by rank, nickname limit 20',
       []
     )
   ]);
@@ -77,29 +75,50 @@ async function getGlobalDashboardStats() {
     };
   }
 
-  var rankingRows = ranking.rows || [];
-  var rankByNickname = {};
-  rankingRows.forEach(function(row) {
-    rankByNickname[row.nickname] = {
-      rank: row.rank,
-      avg_best_score: row.avg_best_score,
-      completed_sets: row.completed_sets
-    };
-  });
-
   globalDashboardCache = {
     fetchedAt: Date.now(),
     distributionRows: distribution.rows || [],
-    rankingRows: rankingRows.slice(0, 20),
-    rankByNickname: rankByNickname
+    rankingRows: ranking.rows || []
   };
 
   return {
     distributionRows: globalDashboardCache.distributionRows,
     rankingRows: globalDashboardCache.rankingRows,
-    rankByNickname: globalDashboardCache.rankByNickname,
     error: null
   };
+}
+
+function getCachedUserRank(user) {
+  var cached = userRankCache[user];
+  if (!cached || (Date.now() - cached.fetchedAt) >= GLOBAL_DASHBOARD_CACHE_TTL_MS) return null;
+  return { hit: true, row: cached.row };
+}
+
+function setCachedUserRank(user, row) {
+  userRankCache[user] = {
+    fetchedAt: Date.now(),
+    row: row || null
+  };
+}
+
+async function getUserRank(user, topRows) {
+  var topRank = (topRows || []).find(function(row) { return row.nickname === user; });
+  if (topRank) {
+    setCachedUserRank(user, topRank);
+    return { row: topRank, error: null };
+  }
+
+  var cached = getCachedUserRank(user);
+  if (cached) return { row: cached.row, error: null };
+
+  var result = await safeQuery(
+    'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, avg_best_score, completed_sets from ranked where nickname = $1',
+    [user]
+  );
+  if (result.error) return { row: null, error: result.error };
+  var row = result.rows[0] || null;
+  setCachedUserRank(user, row);
+  return { row: row, error: null };
 }
 
 module.exports = async function handler(req, res) {
@@ -144,7 +163,8 @@ module.exports = async function handler(req, res) {
   var globalStats = results[3];
   var distributionRows = globalStats.distributionRows || [];
   var rankingRows = globalStats.rankingRows || [];
-  var myRankRow = (globalStats.rankByNickname || {})[user] || null;
+  var myRank = await getUserRank(user, rankingRows);
+  var myRankRow = myRank.row;
 
   if (!session.user_id) {
     var fallbackProgressRows = await safeQuery(
@@ -163,7 +183,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (bySet.error || progressRows.error || globalStats.error) {
+  if (bySet.error || progressRows.error || globalStats.error || myRank.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
   }

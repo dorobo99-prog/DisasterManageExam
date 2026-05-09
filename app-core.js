@@ -53,7 +53,7 @@ function progressSignature(payload) {
   });
 }
 
-function saveProgress() {
+function saveProgress(options = {}) {
   if (!currentUser || !currentSet) return;
   const payload = {
     set_id: currentSet.id,
@@ -66,7 +66,7 @@ function saveProgress() {
   try {
     localStorage.setItem(progressKey(currentUser, currentSet.id), JSON.stringify(payload));
   } catch(e) {}
-  queueProgressRemote(payload);
+  if (options.remote !== false) queueProgressRemote(payload);
 }
 
 function saveProgressRemote(payload, keepalive) {
