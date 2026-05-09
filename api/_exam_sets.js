@@ -9,6 +9,8 @@ const CHAPTERS = {
   ch3: '3장 재난관리단계'
 };
 const PUBLIC_SETS = ['ch1', 'ch2', 'ch3', 'all'];
+const sourceCache = {};
+const poolCache = {};
 
 function isAllowedPublicSet(setId) {
   return PUBLIC_SETS.indexOf(setId) >= 0;
@@ -35,8 +37,10 @@ function sourceSetsForPublicSet(setId) {
 }
 
 function readSource(sourceSet) {
+  if (sourceCache[sourceSet]) return sourceCache[sourceSet];
   var filePath = path.join(__dirname, 'data', 'sources', sourceSet + '.json');
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  sourceCache[sourceSet] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  return sourceCache[sourceSet];
 }
 
 function optionText(raw, index) {
@@ -61,6 +65,7 @@ function normalizeQuestion(raw, sourceSet) {
 }
 
 function getQuestionPool(chapter) {
+  if (poolCache[chapter]) return poolCache[chapter];
   var sourceSets = sourceSetsForPublicSet(chapter);
   var pool = [];
   sourceSets.forEach(function(sourceSet) {
@@ -69,7 +74,8 @@ function getQuestionPool(chapter) {
       pool.push(normalizeQuestion(question, sourceSet));
     });
   });
-  return pool;
+  poolCache[chapter] = pool;
+  return poolCache[chapter];
 }
 
 function shuffle(items) {
@@ -99,7 +105,12 @@ function selectQuestions(setId) {
 function getQuestionsByIds(questionIds) {
   var wanted = new Set(questionIds || []);
   var byId = {};
-  Object.keys(CHAPTERS).forEach(function(chapter) {
+  var chapters = Array.from(new Set((questionIds || []).map(function(id) {
+    var meta = parseQuestionId(id);
+    return meta && meta.chapter;
+  }).filter(Boolean)));
+
+  chapters.forEach(function(chapter) {
     getQuestionPool(chapter).forEach(function(question) {
       if (wanted.has(question.id)) byId[question.id] = question;
     });
