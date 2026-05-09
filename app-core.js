@@ -20,6 +20,7 @@ let modalRestartAction = () => { beginExam(false); closeModal(); };
 let mobileProgressOpen = false;
 let remoteSaveTimer = null;
 let queuedRemoteSave = null;
+let lastRemoteProgressSignature = "";
 let progressSyncPromise = null;
 let dashboardCache = { data: null, fetchedAt: 0, promise: null };
 let progressSummaryCache = { data: null, fetchedAt: 0, promise: null };
@@ -41,6 +42,16 @@ function invalidateSelectCaches() {
   progressSummaryCache = { data: null, fetchedAt: 0, promise: null };
 }
 
+function progressSignature(payload) {
+  return JSON.stringify({
+    set_id: payload?.set_id || "",
+    answers: payload?.answers || {},
+    graded: !!payload?.graded,
+    question_ids: payload?.question_ids || [],
+    started_at: payload?.started_at || null
+  });
+}
+
 function saveProgress() {
   if (!currentUser || !currentSet) return;
   const payload = {
@@ -60,6 +71,9 @@ function saveProgress() {
 function saveProgressRemote(payload, keepalive) {
   if (!currentSet) return;
   const setId = payload.set_id || currentSet.id;
+  const signature = progressSignature(payload);
+  if (signature === lastRemoteProgressSignature) return;
+  lastRemoteProgressSignature = signature;
   fetch('/api/progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -72,7 +86,9 @@ function saveProgressRemote(payload, keepalive) {
       graded: payload.graded,
       started_at: payload.started_at
     })
-  }).catch(function() {});
+  }).catch(function() {
+    if (lastRemoteProgressSignature === signature) lastRemoteProgressSignature = "";
+  });
 }
 
 function queueProgressRemote(payload) {
@@ -99,8 +115,12 @@ function loadProgress(name, setId) {
   try { return JSON.parse(localStorage.getItem(progressKey(name, setId))); } catch(e) { return null; }
 }
 
-function clearProgress(name, setId) {
+function clearLocalProgress(name, setId) {
   try { localStorage.removeItem(progressKey(name, setId)); } catch(e) {}
+}
+
+function clearProgress(name, setId) {
+  clearLocalProgress(name, setId);
   api('/api/progress?set=' + encodeURIComponent(setId), { method: 'DELETE' }).catch(function() {});
 }
 

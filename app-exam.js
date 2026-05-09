@@ -20,7 +20,7 @@ function beginExam(resume) {
     userAnswers = saved.answers || {};
     examStart   = saved.started_at ? new Date(saved.started_at) : new Date();
   } else {
-    clearProgress(currentUser, currentSet.id);
+    clearLocalProgress(currentUser, currentSet.id);
     userAnswers = {};
     examStart   = new Date();
   }

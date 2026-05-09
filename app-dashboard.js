@@ -5,7 +5,6 @@ function enterSelectScreen() {
   renderSetCards();
   loadDashboard();
   showScreen("select");
-  syncServerProgressForCards();
 }
 
 async function loadDashboard() {
@@ -21,7 +20,7 @@ async function loadDashboard() {
   }
   if (dashboardCache.promise) return dashboardCache.promise;
 
-  dashboardCache.promise = api('/api/dashboard')
+  const request = api('/api/dashboard')
     .then(function(data) {
       if (!data.ok || data.disabled) {
         card.classList.remove("show");
@@ -29,6 +28,11 @@ async function loadDashboard() {
       }
       dashboardCache.data = data;
       dashboardCache.fetchedAt = Date.now();
+      if (data.progress) {
+        progressSummaryCache.data = { ok: true, progress: data.progress };
+        progressSummaryCache.fetchedAt = Date.now();
+        applyProgressSummary(progressSummaryCache.data);
+      }
       renderDashboard(data);
       return data;
     })
@@ -38,8 +42,11 @@ async function loadDashboard() {
     })
     .finally(function() {
       dashboardCache.promise = null;
+      if (progressSyncPromise === request) progressSyncPromise = null;
     });
-  return dashboardCache.promise;
+  dashboardCache.promise = request;
+  progressSyncPromise = request;
+  return request;
 }
 
 function renderDashboard(data) {
@@ -75,13 +82,17 @@ function syncServerCompletions(rows) {
 
   rows.forEach(row => {
     if (!allowed.has(row.set_id)) return;
-    completions[row.set_id] = {
+    const next = {
       score: row.best_score || row.avg_score || 0,
       correct: null,
       total: null,
       at: row.latest_at || new Date().toISOString()
     };
-    changed = true;
+    const prev = completions[row.set_id];
+    if (!prev || prev.score !== next.score || prev.at !== next.at) {
+      completions[row.set_id] = next;
+      changed = true;
+    }
   });
 
   if (changed) {
@@ -90,20 +101,30 @@ function syncServerCompletions(rows) {
   }
 }
 
+function getProgressSnapshot() {
+  const snapshot = {};
+  EXAM_SETS.forEach(function(set) {
+    snapshot[set.id] = loadProgress(currentUser, set.id);
+  });
+  return snapshot;
+}
+
 function renderSetCards() {
   const grid = document.getElementById("grid-exams");
+  const completions = getCompletions(currentUser);
+  const progressMap = getProgressSnapshot();
   grid.innerHTML = "";
   EXAM_SETS.forEach(set => {
-    grid.appendChild(makeSetCard(set));
+    grid.appendChild(makeSetCard(set, completions, progressMap));
   });
 }
 
-function makeSetCard(set) {
+function makeSetCard(set, completions, progressMap) {
   const card = document.createElement("div");
   card.className = "set-card";
 
-  const done  = getCompletions(currentUser)[set.id];
-  const prog  = loadProgress(currentUser, set.id);
+  const done  = completions[set.id];
+  const prog  = progressMap[set.id];
   const inProg = prog && !prog.graded;
 
   let badge = "";
@@ -146,32 +167,6 @@ async function fetchServerProgressState(setId) {
   return { found: false, progress: null };
 }
 
-async function syncServerProgressForCards() {
-  if (!currentUser) return;
-  if (isFreshCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS)) {
-    applyProgressSummary(progressSummaryCache.data);
-    return progressSummaryCache.data;
-  }
-  if (progressSummaryCache.promise) return progressSummaryCache.promise;
-  progressSyncPromise = api('/api/progress_summary')
-    .then(function(data) {
-      if (!data.ok || !data.progress) return data;
-      progressSummaryCache.data = data;
-      progressSummaryCache.fetchedAt = Date.now();
-      applyProgressSummary(data);
-      return data;
-    })
-    .catch(function(e) {
-      if (e.message !== "unauthorized") return null;
-    })
-    .finally(function() {
-      progressSummaryCache.promise = null;
-      progressSyncPromise = null;
-    });
-  progressSummaryCache.promise = progressSyncPromise;
-  return progressSyncPromise;
-}
-
 function applyProgressSummary(data) {
   if (!data || !data.progress) return;
   let changed = false;
@@ -179,8 +174,12 @@ function applyProgressSummary(data) {
     const progress = data.progress[set.id] || null;
     if (progress) {
       try {
-        localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(progress));
-        changed = true;
+        const key = progressKey(currentUser, set.id);
+        const next = JSON.stringify(progress);
+        if (localStorage.getItem(key) !== next) {
+          localStorage.setItem(key, next);
+          changed = true;
+        }
       } catch(e) {}
     } else if (loadProgress(currentUser, set.id)) {
       try {

@@ -30,40 +30,44 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    var overall = await run(
-      'select count(*)::int as attempts, count(distinct nickname)::int as users, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts',
-      []
-    );
+    var results = await Promise.all([
+      run(
+        'select count(*)::int as attempts, count(distinct nickname)::int as users, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts',
+        []
+      ),
+      run(
+        'select set_id, provider, chapter, count(*)::int as attempts, count(distinct nickname)::int as users, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts group by set_id, provider, chapter order by set_id',
+        []
+      ),
+      run(
+        'select nickname, count(*)::int as attempts, count(distinct set_id)::int as completed_sets, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts group by nickname order by avg_score desc, completed_sets desc, nickname limit 100',
+        []
+      ),
+      run(
+        'select set_id, question_id, count(*)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by set_id, question_id order by correct_rate asc, attempts desc, set_id, question_id limit 300',
+        []
+      ),
+      run(
+        'select split_part(question_id, \'_\', 1) as provider, count(*)::int as answers, count(distinct attempt_id)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by split_part(question_id, \'_\', 1) order by provider',
+        []
+      ),
+      run(
+        'select split_part(question_id, \'_\', 1) as provider, split_part(question_id, \'_\', 2) as chapter, count(*)::int as answers, count(distinct attempt_id)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by split_part(question_id, \'_\', 1), split_part(question_id, \'_\', 2) order by chapter, provider',
+        []
+      ),
+      run(
+        "select case when score >= 90 then '90-100' when score >= 80 then '80-89' when score >= 70 then '70-79' when score >= 60 then '60-69' else '0-59' end as range, count(*)::int as count from exam_attempts group by range order by min(score)",
+        []
+      )
+    ]);
 
-    var bySet = await run(
-      'select set_id, provider, chapter, count(*)::int as attempts, count(distinct nickname)::int as users, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts group by set_id, provider, chapter order by set_id',
-      []
-    );
-
-    var byNickname = await run(
-      'select nickname, count(*)::int as attempts, count(distinct set_id)::int as completed_sets, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts group by nickname order by avg_score desc, completed_sets desc, nickname limit 100',
-      []
-    );
-
-    var questionStats = await run(
-      'select set_id, question_id, count(*)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by set_id, question_id order by correct_rate asc, attempts desc, set_id, question_id limit 300',
-      []
-    );
-
-    var byProvider = await run(
-      'select split_part(question_id, \'_\', 1) as provider, count(*)::int as answers, count(distinct attempt_id)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by split_part(question_id, \'_\', 1) order by provider',
-      []
-    );
-
-    var byProviderChapter = await run(
-      'select split_part(question_id, \'_\', 1) as provider, split_part(question_id, \'_\', 2) as chapter, count(*)::int as answers, count(distinct attempt_id)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by split_part(question_id, \'_\', 1), split_part(question_id, \'_\', 2) order by chapter, provider',
-      []
-    );
-
-    var distribution = await run(
-      "select case when score >= 90 then '90-100' when score >= 80 then '80-89' when score >= 70 then '70-79' when score >= 60 then '60-69' else '0-59' end as range, count(*)::int as count from exam_attempts group by range order by min(score)",
-      []
-    );
+    var overall = results[0];
+    var bySet = results[1];
+    var byNickname = results[2];
+    var questionStats = results[3];
+    var byProvider = results[4];
+    var byProviderChapter = results[5];
+    var distribution = results[6];
 
     if (overall.disabled) {
       res.json({ ok: true, disabled: true });
