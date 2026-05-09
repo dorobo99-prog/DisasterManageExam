@@ -666,8 +666,15 @@ function saveProgress() {
   try {
     localStorage.setItem(progressKey(currentUser, currentSet.id), JSON.stringify(payload));
   } catch(e) {}
-  api('/api/progress', {
+  saveProgressRemote(payload, false);
+}
+function saveProgressRemote(payload, keepalive) {
+  if (!currentSet) return;
+  fetch('/api/progress', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    keepalive: !!keepalive,
     body: JSON.stringify({
       set_id: currentSet.id,
       answers: payload.answers,
@@ -676,6 +683,11 @@ function saveProgress() {
       started_at: payload.started_at
     })
   }).catch(function() {});
+}
+function flushProgressOnLeave() {
+  if (!currentUser || !currentSet || graded) return;
+  const payload = loadProgress(currentUser, currentSet.id);
+  if (payload) saveProgressRemote(payload, true);
 }
 function loadProgress(name, setId) {
   try { return JSON.parse(localStorage.getItem(progressKey(name, setId))); } catch(e) { return null; }
@@ -857,6 +869,8 @@ async function loadDashboard() {
 }
 
 function renderDashboard(data) {
+  syncServerCompletions(data.by_set || []);
+
   const summary = data.summary || {};
   document.getElementById("dashboard-sub").textContent =
     summary.attempts > 0 ? "전체 응시자 기준 내 위치와 최근 통계입니다." : "아직 저장된 응시 기록이 없습니다.";
@@ -884,6 +898,29 @@ function renderDashboard(data) {
       <span>${r.set_id} · ${r.question_id}</span>
       <span>정답률 ${r.correct_rate}%</span>
     </div>`).join("") : `<div class="dashboard-row"><span>취약 문제 없음</span><span>-</span></div>`;
+}
+
+function syncServerCompletions(rows) {
+  if (!currentUser || !Array.isArray(rows)) return;
+  const allowed = new Set(EXAM_SETS.map(set => set.id));
+  const completions = getCompletions(currentUser);
+  let changed = false;
+
+  rows.forEach(row => {
+    if (!allowed.has(row.set_id)) return;
+    completions[row.set_id] = {
+      score: row.best_score || row.avg_score || 0,
+      correct: null,
+      total: null,
+      at: row.latest_at || new Date().toISOString()
+    };
+    changed = true;
+  });
+
+  if (changed) {
+    try { localStorage.setItem(completionKey(currentUser), JSON.stringify(completions)); } catch(e) {}
+    renderSetCards();
+  }
 }
 
 function renderSetCards() {
@@ -1315,6 +1352,10 @@ document.getElementById("pin-input").addEventListener("keydown", function(e) {
 });
 document.getElementById("pin-input").addEventListener("input", function() {
   this.value = this.value.replace(/\D/g, "").slice(0, 4);
+});
+window.addEventListener("pagehide", flushProgressOnLeave);
+document.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "hidden") flushProgressOnLeave();
 });
 
 // ═══ INIT ════════════════════════════════════════════════
