@@ -1,6 +1,13 @@
 const { getUser } = require('./_auth');
 const { query } = require('./_db');
 
+const GLOBAL_DASHBOARD_CACHE_TTL_MS = 15000;
+let globalDashboardCache = {
+  fetchedAt: 0,
+  distributionRows: null,
+  rankingRows: null
+};
+
 async function safeQuery(sql, params) {
   try {
     return await query(sql, params || []);
@@ -24,6 +31,58 @@ function normalizeProgress(row) {
     graded: !!row.graded,
     started_at: row.started_at || null,
     saved_at: row.saved_at || null
+  };
+}
+
+function isFreshGlobalDashboardCache() {
+  return !!(
+    globalDashboardCache.distributionRows &&
+    globalDashboardCache.rankingRows &&
+    (Date.now() - globalDashboardCache.fetchedAt) < GLOBAL_DASHBOARD_CACHE_TTL_MS
+  );
+}
+
+async function getGlobalDashboardStats() {
+  if (isFreshGlobalDashboardCache()) {
+    return {
+      distributionRows: globalDashboardCache.distributionRows,
+      rankingRows: globalDashboardCache.rankingRows,
+      error: null
+    };
+  }
+
+  var results = await Promise.all([
+    safeQuery(
+      "select case when score >= 90 then '90-100' when score >= 80 then '80-89' when score >= 70 then '70-79' when score >= 60 then '60-69' else '0-59' end as range, count(*)::int as count from exam_attempts group by range order by min(score)",
+      []
+    ),
+    safeQuery(
+      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, nickname, avg_best_score, completed_sets from ranked order by rank, nickname limit 20',
+      []
+    )
+  ]);
+
+  var distribution = results[0];
+  var ranking = results[1];
+
+  if (distribution.error || ranking.error) {
+    return {
+      distributionRows: distribution.rows || [],
+      rankingRows: ranking.rows || [],
+      error: distribution.error || ranking.error
+    };
+  }
+
+  globalDashboardCache = {
+    fetchedAt: Date.now(),
+    distributionRows: distribution.rows || [],
+    rankingRows: ranking.rows || []
+  };
+
+  return {
+    distributionRows: globalDashboardCache.distributionRows,
+    rankingRows: globalDashboardCache.rankingRows,
+    error: null
   };
 }
 
@@ -52,24 +111,23 @@ module.exports = async function handler(req, res) {
       [user]
     ),
     safeQuery(
-      "select case when score >= 90 then '90-100' when score >= 80 then '80-89' when score >= 70 then '70-79' when score >= 60 then '60-69' else '0-59' end as range, count(*)::int as count from exam_attempts group by range order by min(score)",
-      []
-    ),
-    safeQuery(
-      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, nickname, avg_best_score, completed_sets, (nickname = $1) as is_me from ranked where rank <= 20 or nickname = $1 order by rank, nickname',
+      'with best_by_set as (select nickname, set_id, max(score) as best_score from exam_attempts group by nickname, set_id), ranked as (select nickname, round(avg(best_score))::int as avg_best_score, count(*)::int as completed_sets, rank() over (order by avg(best_score) desc, count(*) desc, nickname asc)::int as rank from best_by_set group by nickname) select rank, avg_best_score, completed_sets from ranked where nickname = $1',
       [user]
     ),
     safeQuery(
       'select set_id, answers, graded, started_at, saved_at from exam_progress where nickname = $1',
       [user]
-    )
+    ),
+    getGlobalDashboardStats()
   ]);
 
   var summary = results[0];
   var bySet = results[1];
-  var distribution = results[2];
-  var ranking = results[3];
-  var progressRows = results[4];
+  var myRank = results[2];
+  var progressRows = results[3];
+  var globalStats = results[4];
+  var distributionRows = globalStats.distributionRows || [];
+  var rankingRows = globalStats.rankingRows || [];
 
   if (summary.disabled) {
     res.json({ ok: true, disabled: true });
@@ -80,7 +138,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (bySet.error || distribution.error || ranking.error || progressRows.error) {
+  if (bySet.error || myRank.error || progressRows.error || globalStats.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
   }
@@ -90,23 +148,20 @@ module.exports = async function handler(req, res) {
     progress[row.set_id] = normalizeProgress(row);
   });
 
-  var rankingRows = ranking.rows || [];
-  var leaderboard = rankingRows
-    .filter(function(row) { return row.rank <= 20; })
-    .map(function(row) {
-      return {
-        rank: row.rank,
-        nickname: row.nickname,
-        avg_best_score: row.avg_best_score,
-        completed_sets: row.completed_sets
-      };
-    });
-  var myRank = rankingRows.find(function(row) { return row.is_me; }) || null;
-  if (myRank) {
-    myRank = {
-      rank: myRank.rank,
-      avg_best_score: myRank.avg_best_score,
-      completed_sets: myRank.completed_sets
+  var leaderboard = rankingRows.map(function(row) {
+    return {
+      rank: row.rank,
+      nickname: row.nickname,
+      avg_best_score: row.avg_best_score,
+      completed_sets: row.completed_sets
+    };
+  });
+  var myRankRow = myRank.rows[0] || null;
+  if (myRankRow) {
+    myRankRow = {
+      rank: myRankRow.rank,
+      avg_best_score: myRankRow.avg_best_score,
+      completed_sets: myRankRow.completed_sets
     };
   }
 
@@ -115,9 +170,9 @@ module.exports = async function handler(req, res) {
     nickname: user,
     summary: summary.rows[0] || { attempts: 0, avg_score: 0, best_score: 0 },
     by_set: bySet.rows,
-    distribution: distribution.rows,
+    distribution: distributionRows,
     leaderboard: leaderboard,
-    my_rank: myRank,
+    my_rank: myRankRow,
     progress: progress,
     weak_questions: []
   });
