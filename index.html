@@ -175,7 +175,7 @@
       border-radius: 999px; padding: 7px 12px; letter-spacing: -0.224px;
     }
     .dashboard-metrics {
-      display: grid; grid-template-columns: repeat(3, 1fr);
+      display: grid; grid-template-columns: repeat(4, 1fr);
       gap: 12px; margin-bottom: 18px;
     }
     .dashboard-metric {
@@ -187,7 +187,7 @@
       color: var(--near-black); margin-bottom: 4px;
     }
     .dashboard-metric span { font-size: 12px; color: var(--dim-text); letter-spacing: -0.12px; }
-    .dashboard-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .dashboard-lists { display: grid; grid-template-columns: 1fr; gap: 14px; }
     .dashboard-panel {
       background: rgba(255,255,255,0.58); border-radius: 14px;
       padding: 16px; border: 1px solid rgba(0,0,0,0.04);
@@ -533,15 +533,12 @@
         <div class="dashboard-metric"><strong id="dash-attempts">0</strong><span>총 응시</span></div>
         <div class="dashboard-metric"><strong id="dash-avg">0점</strong><span>평균 점수</span></div>
         <div class="dashboard-metric"><strong id="dash-best">0점</strong><span>최고 점수</span></div>
+        <div class="dashboard-metric"><strong id="dash-rank">-</strong><span>내 순위</span></div>
       </div>
       <div class="dashboard-lists">
         <div class="dashboard-panel">
           <h3>상위 랭킹</h3>
           <div id="dashboard-leaderboard"></div>
-        </div>
-        <div class="dashboard-panel">
-          <h3>내 취약 문제</h3>
-          <div id="dashboard-weak"></div>
         </div>
       </div>
     </div>
@@ -880,6 +877,7 @@ function renderDashboard(data) {
   document.getElementById("dashboard-rank").textContent = rank
     ? `내 순위 ${rank.rank}위 · 평균최고 ${rank.avg_best_score}점`
     : "아직 순위 없음";
+  document.getElementById("dash-rank").textContent = rank ? `${rank.rank}위` : "-";
 
   const leaderEl = document.getElementById("dashboard-leaderboard");
   const leaders = (data.leaderboard || []).slice(0, 5);
@@ -889,13 +887,6 @@ function renderDashboard(data) {
       <span>${r.avg_best_score}점 · ${r.completed_sets}세트</span>
     </div>`).join("") : `<div class="dashboard-row"><span>랭킹 데이터 없음</span><span>-</span></div>`;
 
-  const weakEl = document.getElementById("dashboard-weak");
-  const weak = (data.weak_questions || []).slice(0, 5);
-  weakEl.innerHTML = weak.length ? weak.map(r => `
-    <div class="dashboard-row">
-      <span>${r.set_id} · ${r.question_id}</span>
-      <span>정답률 ${r.correct_rate}%</span>
-    </div>`).join("") : `<div class="dashboard-row"><span>취약 문제 없음</span><span>-</span></div>`;
 }
 
 function syncServerCompletions(rows) {
