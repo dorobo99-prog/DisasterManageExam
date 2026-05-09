@@ -837,6 +837,7 @@ function enterSelectScreen() {
   renderSetCards();
   loadDashboard();
   showScreen("select");
+  syncServerProgressForCards();
 }
 
 async function loadDashboard() {
@@ -937,6 +938,21 @@ async function fetchServerProgress(setId) {
     }
   } catch(e) {}
   return null;
+}
+
+async function syncServerProgressForCards() {
+  if (!currentUser) return;
+  let changed = false;
+  for (const set of EXAM_SETS) {
+    const serverProg = await fetchServerProgress(set.id);
+    if (serverProg) {
+      try {
+        localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(serverProg));
+        changed = true;
+      } catch(e) {}
+    }
+  }
+  if (changed) renderSetCards();
 }
 
 async function onSelectSet(set) {
