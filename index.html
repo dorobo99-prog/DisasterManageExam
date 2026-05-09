@@ -419,14 +419,6 @@
       border-radius: 8px; cursor: pointer; letter-spacing: -0.374px; transition: background 0.2s;
     }
     .btn-action-blue:hover { background: var(--blue-hover); }
-    .btn-action-outline {
-      font-family: inherit; font-size: 17px; padding: 12px 28px;
-      background: transparent; color: var(--white);
-      border: 1px solid rgba(255,255,255,0.28); border-radius: 8px;
-      cursor: pointer; letter-spacing: -0.374px; transition: background 0.2s, border-color 0.2s;
-    }
-    .btn-action-outline:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.5); }
-
     /* Wrong note */
     .wrong-note-section { display: none; background: var(--light-bg); padding: 64px 24px 80px; }
     .wrong-note-section.show { display: block; }
@@ -594,7 +586,6 @@
     </div>
     <div class="result-actions">
       <button class="btn-action-blue"    type="button" onclick="downloadResult()">결과 저장 (JSON)</button>
-      <button class="btn-action-outline" type="button" onclick="toggleWrongNote()">오답 노트 보기</button>
     </div>
   </div>
 
@@ -1313,6 +1304,11 @@ function gradeExam(serverData, options = {}) {
 
   buildWrongCards(fullResults);
   showScreen("results");
+  if (options.review) {
+    document.getElementById("wrong-note-section").classList.add("show");
+    setTimeout(() => document.getElementById("wrong-note-section")
+      .scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
   document.getElementById("fab").classList.add("show");
   renderSetCards();
 }
@@ -1348,13 +1344,6 @@ function buildWrongCards(results) {
       </div>`;
     container.appendChild(card);
   });
-}
-
-function toggleWrongNote() {
-  const sec = document.getElementById("wrong-note-section");
-  sec.classList.toggle("show");
-  if (sec.classList.contains("show"))
-    setTimeout(() => sec.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 }
 
 // ═══ DOWNLOAD ════════════════════════════════════════════
