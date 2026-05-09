@@ -6,15 +6,11 @@ function enterSelectScreen() {
   setTimeout(function() {
     if (!currentUser) return;
     const userAtEnter = currentUser;
-    const grid = document.getElementById("grid-exams");
-    if (isFreshUserCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS, userAtEnter)) {
-      renderSetCards();
-      loadDashboard();
-      return;
-    }
-    if (grid) grid.innerHTML = "";
+    renderSetCards();
     loadDashboard().then(function(data) {
-      if (!data && currentUser === userAtEnter) renderSetCards();
+      if (!data && currentUser === userAtEnter && !isFreshUserCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS, userAtEnter)) {
+        renderSetCards();
+      }
     });
   }, 0);
 }
@@ -114,13 +110,14 @@ function renderSetCards() {
   const renderUser = currentUser;
   const completions = getCompletions(renderUser);
   const progressMap = getProgressSnapshot(renderUser);
+  const isSyncing = !isFreshUserCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS, renderUser);
   grid.innerHTML = "";
   EXAM_SETS.forEach(set => {
-    grid.appendChild(makeSetCard(set, completions, progressMap));
+    grid.appendChild(makeSetCard(set, completions, progressMap, isSyncing));
   });
 }
 
-function makeSetCard(set, completions, progressMap) {
+function makeSetCard(set, completions, progressMap, isSyncing) {
   const card = document.createElement("div");
   card.className = "set-card";
 
@@ -137,6 +134,8 @@ function makeSetCard(set, completions, progressMap) {
     badge = `<span class="set-card-status in-prog">${cnt}/${total} 진행중</span>`;
   } else if (done) {
     badge = `<span class="set-card-status done">완료 ${done.score}점</span>`;
+  } else if (isSyncing) {
+    badge = `<span class="set-card-status in-prog">상태 확인 중</span>`;
   }
 
   card.innerHTML = `
