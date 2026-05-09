@@ -755,6 +755,8 @@ let pendingSet  = null;  // set waiting for modal confirmation
 let modalResumeAction = () => { beginExam(true); closeModal(); };
 let modalRestartAction = () => { beginExam(false); closeModal(); };
 let mobileProgressOpen = false;
+let remoteSaveTimer = null;
+let queuedRemoteSave = null;
 
 // ═══ STORAGE ═════════════════════════════════════════════
 const LAST_USER_KEY = "exam__last_user";
@@ -764,6 +766,7 @@ function completionKey(name)        { return `exam_done__${name}`; }
 function saveProgress() {
   if (!currentUser || !currentSet) return;
   const payload = {
+    set_id: currentSet.id,
     answers: userAnswers, graded,
     question_ids: questions.map(q => q.id),
     started_at: examStart?.toISOString() ?? null,
@@ -772,17 +775,18 @@ function saveProgress() {
   try {
     localStorage.setItem(progressKey(currentUser, currentSet.id), JSON.stringify(payload));
   } catch(e) {}
-  saveProgressRemote(payload, false);
+  queueProgressRemote(payload);
 }
 function saveProgressRemote(payload, keepalive) {
   if (!currentSet) return;
+  const setId = payload.set_id || currentSet.id;
   fetch('/api/progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     keepalive: !!keepalive,
     body: JSON.stringify({
-      set_id: currentSet.id,
+      set_id: setId,
       answers: payload.answers,
       question_ids: payload.question_ids,
       graded: payload.graded,
@@ -790,8 +794,21 @@ function saveProgressRemote(payload, keepalive) {
     })
   }).catch(function() {});
 }
+function queueProgressRemote(payload) {
+  queuedRemoteSave = payload;
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = setTimeout(function() {
+    const latest = queuedRemoteSave;
+    queuedRemoteSave = null;
+    remoteSaveTimer = null;
+    if (latest) saveProgressRemote(latest, false);
+  }, 700);
+}
 function flushProgressOnLeave() {
   if (!currentUser || !currentSet || graded) return;
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = null;
+  queuedRemoteSave = null;
   const payload = loadProgress(currentUser, currentSet.id);
   if (payload) saveProgressRemote(payload, true);
 }
@@ -1058,11 +1075,6 @@ function makeSetCard(set) {
   return card;
 }
 
-async function fetchServerProgress(setId) {
-  const state = await fetchServerProgressState(setId);
-  return state.found ? state.progress : null;
-}
-
 async function fetchServerProgressState(setId) {
   try {
     const data = await api('/api/progress?set=' + encodeURIComponent(setId));
@@ -1087,8 +1099,13 @@ async function fetchServerProgressState(setId) {
 async function syncServerProgressForCards() {
   if (!currentUser) return;
   let changed = false;
-  for (const set of EXAM_SETS) {
-    const state = await fetchServerProgressState(set.id);
+  const states = await Promise.all(EXAM_SETS.map(async function(set) {
+    return { set: set, state: await fetchServerProgressState(set.id) };
+  }));
+
+  states.forEach(function(item) {
+    const set = item.set;
+    const state = item.state;
     if (state.found) {
       try {
         localStorage.setItem(progressKey(currentUser, set.id), JSON.stringify(state.progress));
@@ -1100,7 +1117,7 @@ async function syncServerProgressForCards() {
         changed = true;
       } catch(e) {}
     }
-  }
+  });
   if (changed) renderSetCards();
 }
 
