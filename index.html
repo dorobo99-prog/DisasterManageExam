@@ -339,6 +339,11 @@
     .q-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .q-num { font-size: 12px; font-weight: 600; color: var(--blue); letter-spacing: -0.12px; }
     .q-src { font-size: 11px; color: var(--dim-text); letter-spacing: -0.08px; text-align: right; max-width: 55%; }
+    .q-difficulty {
+      font-size: 11px; font-weight: 600; letter-spacing: -0.08px;
+      padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,0.06);
+      color: var(--body-text); white-space: nowrap;
+    }
     .q-text {
       font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: 17px; font-weight: 400; line-height: 1.55;
@@ -1175,7 +1180,7 @@ function renderExam(savedData) {
     card.innerHTML = `
       <div class="q-meta">
         <span class="q-num">문제 ${idx + 1}</span>
-        <span class="q-src">${q.source || ""}</span>
+        <span class="q-difficulty">난이도 ${q.difficulty || "-"}</span>
       </div>
       <p class="q-text">${q.question_text}</p>
       <ul class="opts">${opts}</ul>

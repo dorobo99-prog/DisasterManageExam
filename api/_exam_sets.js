@@ -34,23 +34,39 @@ function sourceSetsForPublicSet(setId) {
   return PROVIDERS.map(function(provider) { return provider + '_' + setId; });
 }
 
-function readJson(type, sourceSet) {
-  var filePath = path.join(__dirname, 'data', type, sourceSet + '.json');
+function readSource(sourceSet) {
+  var filePath = path.join(__dirname, 'data', 'sources', sourceSet + '.json');
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function optionText(raw, index) {
+  return String(raw || '').replace(new RegExp('^\\s*' + (index + 1) + '[.)]\\s*'), '');
+}
+
+function normalizeQuestion(raw, sourceSet) {
+  var meta = parseQuestionId(sourceSet + '_' + String(raw['문항번호']).padStart(3, '0'));
+  var id = sourceSet + '_' + String(raw['문항번호']).padStart(3, '0');
+  return {
+    id: id,
+    question_no: raw['문항번호'],
+    question_text: raw['본문'] || '',
+    difficulty: raw['예상난이도'] || '',
+    options: (raw['선택지'] || []).map(function(text, idx) {
+      return { no: idx + 1, text: optionText(text, idx) };
+    }),
+    provider: meta.provider,
+    chapter: meta.chapter,
+    source_set: meta.source_set
+  };
 }
 
 function getQuestionPool(chapter) {
   var sourceSets = sourceSetsForPublicSet(chapter);
   var pool = [];
   sourceSets.forEach(function(sourceSet) {
-    var questions = readJson('questions', sourceSet);
+    var questions = readSource(sourceSet);
     questions.forEach(function(question) {
-      var meta = parseQuestionId(question.id);
-      pool.push(Object.assign({}, question, {
-        provider: meta.provider,
-        chapter: meta.chapter,
-        source_set: meta.source_set
-      }));
+      pool.push(normalizeQuestion(question, sourceSet));
     });
   });
   return pool;
@@ -94,14 +110,19 @@ function getQuestionsByIds(questionIds) {
 function getAnswer(questionId) {
   var meta = parseQuestionId(questionId);
   if (!meta) return null;
-  var answers = readJson('answers', meta.source_set);
-  var answer = answers[questionId];
-  if (!answer) return null;
+  var number = parseInt(String(questionId).slice(-3), 10);
+  var source = readSource(meta.source_set);
+  var raw = source.find(function(item) { return parseInt(item['문항번호'], 10) === number; });
+  if (!raw) return null;
   return {
     provider: meta.provider,
     chapter: meta.chapter,
     source_set: meta.source_set,
-    answer: answer
+    answer: {
+      answer: raw['정답'],
+      explanation: raw['문제해설'] || '',
+      option_rationale: raw['선택지_근거'] || {}
+    }
   };
 }
 
