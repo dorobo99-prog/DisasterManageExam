@@ -166,6 +166,29 @@
           </div>
         </div>
       </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>AI별 출제 통계</h2>
+          <p class="panel-sub">Gemini와 ChatGPT 문제의 전체 정답률/오답률입니다.</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>AI</th><th>답변 수</th><th>정답</th><th>오답</th><th>정답률</th></tr></thead>
+              <tbody id="provider-table"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>AI · 과목별 정답률</h2>
+          <p class="panel-sub">AI별로 어느 과목에서 많이 맞고 틀렸는지 봅니다.</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>과목</th><th>AI</th><th>답변 수</th><th>오답</th><th>정답률</th></tr></thead>
+              <tbody id="provider-chapter-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -237,6 +260,8 @@
 
       fillNicknameTable(data.by_nickname || []);
       fillQuestionTable(data.question_stats || []);
+      fillProviderTable(data.by_provider || []);
+      fillProviderChapterTable(data.by_provider_chapter || []);
     }
 
     function fillNicknameTable(rows) {
@@ -261,6 +286,43 @@
           <td>${r.correct_rate}%</td>
         </tr>
       `).join("");
+    }
+
+    function fillProviderTable(rows) {
+      document.getElementById("provider-table").innerHTML = rows.map(r => `
+        <tr>
+          <td>${providerName(r.provider)}</td>
+          <td>${r.answers}</td>
+          <td class="good">${r.correct_count}</td>
+          <td class="danger">${r.wrong_count}</td>
+          <td>${r.correct_rate}%</td>
+        </tr>
+      `).join("");
+    }
+
+    function fillProviderChapterTable(rows) {
+      document.getElementById("provider-chapter-table").innerHTML = rows.map(r => `
+        <tr>
+          <td>${chapterName(r.chapter)}</td>
+          <td>${providerName(r.provider)}</td>
+          <td>${r.answers}</td>
+          <td class="danger">${r.wrong_count}</td>
+          <td>${r.correct_rate}%</td>
+        </tr>
+      `).join("");
+    }
+
+    function providerName(provider) {
+      return provider === "gpt" ? "ChatGPT" : provider === "gemini" ? "Gemini" : escapeHtml(provider);
+    }
+
+    function chapterName(chapter) {
+      return {
+        ch1: "1장 재난의 이해",
+        ch2: "2장 재난의 분류",
+        ch3: "3장 재난관리단계",
+        all: "전체"
+      }[chapter] || escapeHtml(chapter);
     }
 
     function drawBarChart(id, rows, opts) {

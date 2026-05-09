@@ -1,20 +1,9 @@
 const { getUser, readBody } = require('./_auth');
 const { transaction } = require('./_db');
-const fs   = require('fs');
-const path = require('path');
-
-const ALLOWED = ['gemini_ch1','gemini_ch2','gemini_ch3','gpt_ch1','gpt_ch2','gpt_ch3'];
-
-function splitSetId(setId) {
-  var parts = setId.split('_');
-  return {
-    provider: parts[0] || '',
-    chapter: parts[1] || '',
-  };
-}
+const { getAnswer, isAllowedPublicSet, publicSetMeta } = require('./_exam_sets');
 
 async function saveAttemptStats(user, setId, score, correct, total, results, startedAt) {
-  var meta = splitSetId(setId);
+  var meta = publicSetMeta(setId);
   var saved = false;
 
   try {
@@ -74,26 +63,22 @@ module.exports = async function handler(req, res) {
   var payload = JSON.parse(body);
   var set_id  = payload.set_id  || '';
   var answers = payload.answers || {};
+  var questionIds = Array.isArray(payload.question_ids) ? payload.question_ids : Object.keys(answers);
   var startedAt = payload.started_at || null;
 
-  if (ALLOWED.indexOf(set_id) < 0) {
+  if (!isAllowedPublicSet(set_id)) {
     res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
     return;
   }
 
-  var answerPath = path.join(__dirname, 'data', 'answers', set_id + '.json');
-  if (!fs.existsSync(answerPath)) {
-    res.status(500).json({ ok: false, error: '정답 파일을 찾을 수 없습니다.' });
-    return;
-  }
-
-  var answerDb = JSON.parse(fs.readFileSync(answerPath, 'utf8'));
   var correct  = 0;
-  var total    = Object.keys(answerDb).length;
+  var total    = questionIds.length;
   var results  = [];
 
-  Object.keys(answerDb).forEach(function(q_id) {
-    var ans_data  = answerDb[q_id];
+  questionIds.forEach(function(q_id) {
+    var answerInfo = getAnswer(q_id);
+    if (!answerInfo) return;
+    var ans_data  = answerInfo.answer;
     var my_ans    = answers[q_id] != null ? parseInt(answers[q_id], 10) : null;
     var correct_a = parseInt(ans_data.answer, 10);
     var is_ok     = (my_ans === correct_a);
@@ -104,9 +89,14 @@ module.exports = async function handler(req, res) {
       my_answer:        my_ans,
       correct_answer:   correct_a,
       explanation:      ans_data.explanation      || '',
-      option_rationale: ans_data.option_rationale || {}
+      option_rationale: ans_data.option_rationale || {},
+      provider:         answerInfo.provider,
+      chapter:          answerInfo.chapter,
+      source_set:       answerInfo.source_set
     });
   });
+
+  total = results.length;
 
   var score = total > 0 ? Math.round(correct / total * 100) : 0;
   var statsSaved = await saveAttemptStats(user, set_id, score, correct, total, results, startedAt);

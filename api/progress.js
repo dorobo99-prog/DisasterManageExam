@@ -1,12 +1,7 @@
 const { getSession, readBody } = require('./_auth');
 const { ensureAccountTables } = require('./_account');
 const { query, exec } = require('./_db');
-
-const ALLOWED = ['gemini_ch1','gemini_ch2','gemini_ch3','gpt_ch1','gpt_ch2','gpt_ch3'];
-
-function validSet(setId) {
-  return ALLOWED.indexOf(setId) >= 0;
-}
+const { isAllowedPublicSet } = require('./_exam_sets');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -22,7 +17,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     var getSet = (req.query.set || '').trim();
-    if (!validSet(getSet)) {
+    if (!isAllowedPublicSet(getSet)) {
       res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
       return;
     }
@@ -30,13 +25,17 @@ module.exports = async function handler(req, res) {
       'select set_id, answers, graded, started_at, saved_at from exam_progress where user_id = $1 and set_id = $2 limit 1',
       [session.user_id, getSet]
     );
+    if (found.rows[0] && found.rows[0].answers && found.rows[0].answers.__question_ids) {
+      found.rows[0].question_ids = found.rows[0].answers.__question_ids;
+      delete found.rows[0].answers.__question_ids;
+    }
     res.json({ ok: true, progress: found.rows[0] || null });
     return;
   }
 
   if (req.method === 'DELETE') {
     var deleteSet = (req.query.set || '').trim();
-    if (!validSet(deleteSet)) {
+    if (!isAllowedPublicSet(deleteSet)) {
       res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
       return;
     }
@@ -55,10 +54,13 @@ module.exports = async function handler(req, res) {
 
   var payload = JSON.parse(await readBody(req));
   var setId = (payload.set_id || '').trim();
-  if (!validSet(setId)) {
+  if (!isAllowedPublicSet(setId)) {
     res.status(400).json({ ok: false, error: '유효하지 않은 세트입니다.' });
     return;
   }
+
+  var storedAnswers = Object.assign({}, payload.answers || {});
+  storedAnswers.__question_ids = payload.question_ids || [];
 
   await exec(
     'insert into exam_progress (user_id, nickname, set_id, answers, graded, started_at, saved_at) values ($1, $2, $3, $4::jsonb, $5, $6, now()) on conflict (user_id, set_id) do update set answers = excluded.answers, graded = excluded.graded, started_at = coalesce(excluded.started_at, exam_progress.started_at), saved_at = now()',
@@ -66,7 +68,7 @@ module.exports = async function handler(req, res) {
       session.user_id,
       session.name,
       setId,
-      JSON.stringify(payload.answers || {}),
+      JSON.stringify(storedAnswers),
       !!payload.graded,
       payload.started_at || null
     ]

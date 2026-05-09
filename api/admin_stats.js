@@ -50,6 +50,16 @@ module.exports = async function handler(req, res) {
       []
     );
 
+    var byProvider = await run(
+      'select split_part(question_id, \'_\', 1) as provider, count(*)::int as answers, count(distinct attempt_id)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by split_part(question_id, \'_\', 1) order by provider',
+      []
+    );
+
+    var byProviderChapter = await run(
+      'select split_part(question_id, \'_\', 1) as provider, split_part(question_id, \'_\', 2) as chapter, count(*)::int as answers, count(distinct attempt_id)::int as attempts, sum(case when is_correct then 1 else 0 end)::int as correct_count, sum(case when is_correct then 0 else 1 end)::int as wrong_count, round(avg(case when is_correct then 100.0 else 0.0 end))::int as correct_rate from exam_answers group by split_part(question_id, \'_\', 1), split_part(question_id, \'_\', 2) order by chapter, provider',
+      []
+    );
+
     var distribution = await run(
       "select case when score >= 90 then '90-100' when score >= 80 then '80-89' when score >= 70 then '70-79' when score >= 60 then '60-69' else '0-59' end as range, count(*)::int as count from exam_attempts group by range order by min(score)",
       []
@@ -65,6 +75,8 @@ module.exports = async function handler(req, res) {
       overall: overall.rows[0] || { attempts: 0, users: 0, avg_score: 0, best_score: 0 },
       by_set: bySet.rows,
       by_nickname: byNickname.rows,
+      by_provider: byProvider.rows,
+      by_provider_chapter: byProviderChapter.rows,
       question_stats: questionStats.rows,
       distribution: distribution.rows
     });

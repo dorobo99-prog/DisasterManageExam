@@ -489,7 +489,7 @@
   <section class="hero">
     <p class="hero-eyebrow">재난관리사 자격시험 대비</p>
     <h1 class="hero-title">모의고사</h1>
-    <p class="hero-sub">총 6세트 · 각 100문항 · 객관식 4지선다</p>
+    <p class="hero-sub">과목별 20문항 · 전체 모의고사 60문항 · 객관식 4지선다</p>
   </section>
 
   <div class="login-wrap">
@@ -514,7 +514,7 @@
   <section class="hero">
     <p class="hero-eyebrow">재난관리사 자격시험 대비</p>
     <h1 class="hero-title">모의고사</h1>
-    <p class="hero-sub">총 6세트 · 각 100문항 · 객관식 4지선다</p>
+    <p class="hero-sub">과목별 20문항 · 전체 모의고사 60문항 · 객관식 4지선다</p>
   </section>
 
   <div class="select-inner">
@@ -549,11 +549,8 @@
       </div>
     </div>
 
-    <p class="group-label">Gemini 출제</p>
-    <div class="set-grid" id="grid-gemini"></div>
-
-    <p class="group-label">ChatGPT 출제</p>
-    <div class="set-grid" id="grid-gpt"></div>
+    <p class="group-label">과목별 응시</p>
+    <div class="set-grid" id="grid-exams"></div>
   </div>
 </div>
 
@@ -632,18 +629,16 @@
 </button>
 
 <footer>
-  <p>재난관리사 모의고사 · Gemini &amp; ChatGPT 출제 · 총 600문항</p>
+  <p>재난관리사 모의고사 · AI 혼합 랜덤 출제 · 총 600문항</p>
 </footer>
 
 <script>
 // ═══ CONFIG ══════════════════════════════════════════════
 const EXAM_SETS = [
-  { id:"gemini_ch1", group:"gemini", ai:"Gemini", chapter:"1장 재난의 이해",  file:"Gemini_exam_ch1_with_id.json", filePrefix:"gemini_1장재난의이해" },
-  { id:"gemini_ch2", group:"gemini", ai:"Gemini", chapter:"2장 재난의 분류",  file:"Gemini_exam_ch2_with_id.json", filePrefix:"gemini_2장재난의분류" },
-  { id:"gemini_ch3", group:"gemini", ai:"Gemini", chapter:"3장 재난관리단계", file:"Gemini_exam_ch3_with_id.json", filePrefix:"gemini_3장재난관리단계" },
-  { id:"gpt_ch1",    group:"gpt",    ai:"GPT",    chapter:"1장 재난의 이해",  file:"GPT_exam_ch1_with_id.json",    filePrefix:"gpt_1장재난의이해" },
-  { id:"gpt_ch2",    group:"gpt",    ai:"GPT",    chapter:"2장 재난의 분류",  file:"GPT_exam_ch2_with_id.json",    filePrefix:"gpt_2장재난의분류" },
-  { id:"gpt_ch3",    group:"gpt",    ai:"GPT",    chapter:"3장 재난관리단계", file:"GPT_exam_ch3_with_id.json",    filePrefix:"gpt_3장재난관리단계" },
+  { id:"ch1", group:"chapter", label:"과목", chapter:"1장 재난의 이해",  count:20, filePrefix:"1장재난의이해" },
+  { id:"ch2", group:"chapter", label:"과목", chapter:"2장 재난의 분류",  count:20, filePrefix:"2장재난의분류" },
+  { id:"ch3", group:"chapter", label:"과목", chapter:"3장 재난관리단계", count:20, filePrefix:"3장재난관리단계" },
+  { id:"all", group:"all",     label:"전체", chapter:"전체 과목 모의고사", count:60, filePrefix:"전체과목모의고사" },
 ];
 
 // ═══ STATE ═══════════════════════════════════════════════
@@ -664,6 +659,7 @@ function saveProgress() {
   if (!currentUser || !currentSet) return;
   const payload = {
     answers: userAnswers, graded,
+    question_ids: questions.map(q => q.id),
     started_at: examStart?.toISOString() ?? null,
     saved_at: new Date().toISOString()
   };
@@ -675,6 +671,7 @@ function saveProgress() {
     body: JSON.stringify({
       set_id: currentSet.id,
       answers: payload.answers,
+      question_ids: payload.question_ids,
       graded: payload.graded,
       started_at: payload.started_at
     })
@@ -890,12 +887,10 @@ function renderDashboard(data) {
 }
 
 function renderSetCards() {
-  ["gemini", "gpt"].forEach(group => {
-    const grid = document.getElementById("grid-" + group);
-    grid.innerHTML = "";
-    EXAM_SETS.filter(s => s.group === group).forEach(set => {
-      grid.appendChild(makeSetCard(set));
-    });
+  const grid = document.getElementById("grid-exams");
+  grid.innerHTML = "";
+  EXAM_SETS.forEach(set => {
+    grid.appendChild(makeSetCard(set));
   });
 }
 
@@ -912,14 +907,15 @@ function makeSetCard(set) {
     badge = `<span class="set-card-status done">완료 ${done.score}점</span>`;
   } else if (inProg) {
     const cnt = Object.keys(prog.answers || {}).length;
-    badge = `<span class="set-card-status in-prog">${cnt}/100 진행중</span>`;
+    const total = (prog.question_ids || []).length || set.count;
+    badge = `<span class="set-card-status in-prog">${cnt}/${total} 진행중</span>`;
   }
 
   card.innerHTML = `
     ${badge}
-    <p class="set-card-ai ${set.group}">${set.ai}</p>
+    <p class="set-card-ai ${set.group}">${set.label}</p>
     <p class="set-card-title">${set.chapter}</p>
-    <p class="set-card-count">100문항</p>`;
+    <p class="set-card-count">${set.count}문항 랜덤 출제</p>`;
 
   card.onclick = () => onSelectSet(set);
   return card;
@@ -938,6 +934,7 @@ async function fetchServerProgressState(setId) {
         found: true,
         progress: {
           answers: data.progress.answers || {},
+          question_ids: data.progress.question_ids || [],
           graded: !!data.progress.graded,
           started_at: data.progress.started_at || null,
           saved_at: data.progress.saved_at || null
@@ -1047,9 +1044,12 @@ async function loadAndRenderExam(savedData) {
   document.getElementById("loading-text").textContent =
     currentSet.chapter + " 문제를 불러오는 중...";
   try {
-    const data = await api('/api/get_exam?set=' + currentSet.id);
+    const savedIds = savedData && savedData.question_ids ? savedData.question_ids : [];
+    const idQuery = savedIds.length ? '&ids=' + encodeURIComponent(savedIds.join(',')) : '';
+    const data = await api('/api/get_exam?set=' + currentSet.id + idQuery);
     if (!data.ok) throw new Error(data.error || "문제 로드 실패");
     questions = data.questions;
+    if (!savedData) saveProgress();
   } catch(e) {
     if (e.message !== "unauthorized") {
       document.getElementById("loading-text").textContent =
@@ -1064,7 +1064,7 @@ async function loadAndRenderExam(savedData) {
 // ═══ RENDER ══════════════════════════════════════════════
 function renderExam(savedData) {
   const aiLbl = document.getElementById("exam-ai-label");
-  aiLbl.textContent = currentSet.ai + " 출제";
+  aiLbl.textContent = "AI 혼합 랜덤 출제";
   aiLbl.className = "exam-header-ai " + currentSet.group;
   document.getElementById("exam-title").textContent = currentSet.chapter;
   document.getElementById("exam-meta").textContent  =
@@ -1148,6 +1148,7 @@ async function submitExam() {
       body: JSON.stringify({
         set_id: currentSet.id,
         answers: userAnswers,
+        question_ids: questions.map(q => q.id),
         started_at: examStart.toISOString()
       })
     });
@@ -1204,7 +1205,7 @@ function gradeExam(serverData) {
   window._resultData = {
     meta: {
       name: currentUser, set_id: currentSet.id,
-      title: "(" + currentSet.ai + ") " + currentSet.chapter,
+      title: currentSet.chapter,
       total, correct, wrong, score,
       started_at: examStart.toISOString(),
       finished_at: new Date().toISOString()
