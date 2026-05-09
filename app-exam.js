@@ -18,10 +18,12 @@ function beginExam(resume) {
 
   if (resume && saved && !saved.graded) {
     userAnswers = saved.answers || {};
+    answeredCount = Object.keys(userAnswers).length;
     examStart   = saved.started_at ? new Date(saved.started_at) : new Date();
   } else {
     clearLocalProgress(currentUser, currentSet.id);
     userAnswers = {};
+    answeredCount = 0;
     examStart   = new Date();
   }
 
@@ -150,7 +152,7 @@ function restoreAnswers() {
 
 // ═══ PROGRESS TRACKER ═══════════════════════════════════
 function getAnsweredCount() {
-  return questions.filter(q => userAnswers[q.id] != null).length;
+  return answeredCount;
 }
 
 function renderProgressTracker() {
@@ -229,6 +231,7 @@ function toggleMobileProgress() {
 // ═══ PICK / SUBMIT / GRADE ═══════════════════════════════
 function onPick(qId, optNo) {
   if (graded) return;
+  if (userAnswers[qId] == null) answeredCount++;
   userAnswers[qId] = optNo;
   document.getElementById(`r_${qId}_${optNo}`).checked = true;
   setProgressCellAnswered(qId, true);

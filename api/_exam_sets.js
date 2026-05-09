@@ -80,19 +80,18 @@ function getQuestionPool(chapter) {
   return poolCache[chapter];
 }
 
-function shuffle(items) {
+function pickRandom(items, count) {
+  if (!Array.isArray(items) || count <= 0) return [];
+  if (items.length <= count) return items.slice();
+
   var arr = items.slice();
-  for (var i = arr.length - 1; i > 0; i--) {
-    var j = crypto.randomInt(i + 1);
+  for (var i = 0; i < count; i++) {
+    var j = crypto.randomInt(i, arr.length);
     var tmp = arr[i];
     arr[i] = arr[j];
     arr[j] = tmp;
   }
-  return arr;
-}
-
-function pickRandom(items, count) {
-  return shuffle(items).slice(0, count);
+  return arr.slice(0, count);
 }
 
 function selectQuestions(setId) {

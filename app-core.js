@@ -12,6 +12,7 @@ let currentSet  = null;
 let questions   = [];
 let questionById = {};
 let userAnswers = {};
+let answeredCount = 0;
 let examStart   = null;
 let graded      = false;
 let pendingSet  = null;
