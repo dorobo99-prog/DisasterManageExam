@@ -50,6 +50,10 @@ function optionText(raw, index) {
   return String(raw || '').replace(new RegExp('^\\s*' + (index + 1) + '[.)]\\s*'), '');
 }
 
+function normalizeQuestionText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
 function normalizeQuestion(raw, sourceSet) {
   var meta = parseQuestionId(sourceSet + '_' + String(raw['문항번호']).padStart(3, '0'));
   var id = sourceSet + '_' + String(raw['문항번호']).padStart(3, '0');
@@ -105,14 +109,39 @@ function pickRandom(items, count) {
   return arr.slice(0, count);
 }
 
+function pickRandomUniqueQuestionIds(items, count, seenTexts) {
+  if (!Array.isArray(items) || count <= 0) return [];
+  var arr = items.slice();
+  var selected = [];
+  var textSet = seenTexts || new Set();
+  var questionIndex = getQuestionIndex();
+
+  for (var i = 0; i < arr.length && selected.length < count; i++) {
+    var j = crypto.randomInt(i, arr.length);
+    var tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+
+    var question = questionIndex[arr[i]];
+    if (!question) continue;
+    var textKey = normalizeQuestionText(question.question_text);
+    if (textSet.has(textKey)) continue;
+    textSet.add(textKey);
+    selected.push(arr[i]);
+  }
+
+  return selected;
+}
+
 function selectQuestions(setId) {
+  var seenTexts = new Set();
   if (setId === 'all') {
     var selectedIds = Object.keys(CHAPTERS).flatMap(function(chapter) {
-      return pickRandom(getQuestionIdPool(chapter), 20);
+      return pickRandomUniqueQuestionIds(getQuestionIdPool(chapter), 20, seenTexts);
     });
     return getQuestionsByIds(selectedIds);
   }
-  return getQuestionsByIds(pickRandom(getQuestionIdPool(setId), 20));
+  return getQuestionsByIds(pickRandomUniqueQuestionIds(getQuestionIdPool(setId), 20, seenTexts));
 }
 
 function getQuestionsByIds(questionIds) {
