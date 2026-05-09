@@ -6,8 +6,43 @@ function enterSelectScreen() {
   setTimeout(function() {
     if (!currentUser) return;
     renderSetCards();
-    loadDashboard();
+    loadCompletionSummary();
+    setTimeout(function() {
+      if (currentUser) loadDashboard();
+    }, 50);
   }, 0);
+}
+
+async function loadCompletionSummary() {
+  const requestUser = currentUser;
+  if (!requestUser) return null;
+  if (completionCache.user === requestUser && isFreshCache(completionCache, DASHBOARD_CACHE_TTL_MS)) {
+    renderSetCards();
+    return completionCache.data;
+  }
+  if (completionCache.promise && completionCache.user === requestUser) return completionCache.promise;
+
+  const request = api('/api/completion_summary')
+    .then(function(data) {
+      if (currentUser !== requestUser) return null;
+      if (!data.ok) return data;
+      if (data.nickname && data.nickname !== requestUser) return null;
+      completionCache.user = requestUser;
+      completionCache.data = data;
+      completionCache.fetchedAt = Date.now();
+      renderSetCards();
+      return data;
+    })
+    .catch(function() {
+      return null;
+    })
+    .finally(function() {
+      if (completionCache.promise === request) completionCache.promise = null;
+    });
+
+  completionCache.user = requestUser;
+  completionCache.promise = request;
+  return request;
 }
 
 async function loadDashboard() {
@@ -79,6 +114,7 @@ function renderDashboard(data, userName = currentUser) {
 function syncServerCompletions(rows, userName = currentUser) {
   if (!userName || !Array.isArray(rows)) return;
   if (dashboardCache.user === userName && dashboardCache.data) dashboardCache.data.by_set = rows;
+  if (completionCache.user === userName && completionCache.data) completionCache.data.by_set = rows;
 }
 
 function renderSetCards() {
@@ -99,7 +135,9 @@ function makeSetCard(set, completions) {
 
   let badge = "";
   if (done) {
-    badge = `<span class="set-card-status done">완료 ${done.score}점</span>`;
+    badge = done.score != null
+      ? `<span class="set-card-status done">완료 ${done.score}점</span>`
+      : `<span class="set-card-status done">완료</span>`;
   }
 
   card.innerHTML = `
@@ -119,7 +157,9 @@ async function onSelectSet(set) {
   if (done) {
     document.getElementById("modal-title").textContent = "완료한 과목";
     document.getElementById("modal-desc").textContent  =
-      `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n새로 다시 응시할 수 있습니다.`;
+      done.score != null
+        ? `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다 (${done.score}점).\n새로 다시 응시할 수 있습니다.`
+        : `${currentUser}님은 "${set.chapter}"을(를) 이미 완료했습니다.\n새로 다시 응시할 수 있습니다.`;
     document.getElementById("btn-modal-resume").style.display  = "none";
     document.getElementById("btn-modal-restart").textContent   = "다시 응시하기";
     modalRestartAction = () => { beginExam(false); closeModal(); };

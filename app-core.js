@@ -19,6 +19,7 @@ let pendingSet  = null;
 let modalResumeAction = () => { beginExam(true); closeModal(); };
 let modalRestartAction = () => { beginExam(false); closeModal(); };
 let mobileProgressOpen = false;
+let completionCache = { user: "", data: null, fetchedAt: 0, promise: null };
 let dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
 let progressCellMap = {};
 
@@ -31,6 +32,7 @@ function isFreshCache(cache, ttlMs) {
 }
 
 function invalidateSelectCaches() {
+  completionCache = { user: "", data: null, fetchedAt: 0, promise: null };
   dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
 }
 
@@ -54,11 +56,19 @@ function clearProgress(name, setId) {
 }
 
 function getCompletions(name) {
-  if (!name || dashboardCache.user !== name || !dashboardCache.data) return {};
+  if (!name) return {};
+  const source = (
+    dashboardCache.user === name && dashboardCache.data && Array.isArray(dashboardCache.data.by_set)
+      ? dashboardCache.data.by_set
+      : completionCache.user === name && completionCache.data && Array.isArray(completionCache.data.by_set)
+        ? completionCache.data.by_set
+        : null
+  );
+  if (!source) return {};
   const completions = {};
-  (dashboardCache.data.by_set || []).forEach(function(row) {
+  source.forEach(function(row) {
     completions[row.set_id] = {
-      score: row.best_score || row.avg_score || 0,
+      score: row.best_score != null ? row.best_score : row.avg_score,
       correct: null,
       total: null,
       at: row.latest_at || null
@@ -69,6 +79,14 @@ function getCompletions(name) {
 
 function markCompletion(name, setId, score, correct, total) {
   if (!name || !setId) return;
+  if (completionCache.user !== name || !completionCache.data) {
+    completionCache = {
+      user: name,
+      data: { ok: true, by_set: [] },
+      fetchedAt: Date.now(),
+      promise: null
+    };
+  }
   if (dashboardCache.user !== name || !dashboardCache.data) {
     dashboardCache = {
       user: name,
@@ -77,21 +95,23 @@ function markCompletion(name, setId, score, correct, total) {
       promise: null
     };
   }
-  const rows = dashboardCache.data.by_set || [];
-  const row = rows.find(function(item) { return item.set_id === setId; });
-  if (row) {
-    row.attempts = Math.max(row.attempts || 0, 1);
-    row.avg_score = score;
-    row.best_score = Math.max(row.best_score || 0, score);
-    row.latest_at = new Date().toISOString();
-  } else {
-    rows.push({ set_id: setId, attempts: 1, avg_score: score, best_score: score, latest_at: new Date().toISOString() });
-    dashboardCache.data.by_set = rows;
-  }
+  [completionCache.data.by_set, dashboardCache.data.by_set].forEach(function(rows) {
+    const row = rows.find(function(item) { return item.set_id === setId; });
+    if (row) {
+      row.attempts = Math.max(row.attempts || 0, 1);
+      row.avg_score = score;
+      row.best_score = Math.max(row.best_score || 0, score);
+      row.latest_at = new Date().toISOString();
+    } else {
+      rows.push({ set_id: setId, attempts: 1, avg_score: score, best_score: score, latest_at: new Date().toISOString() });
+    }
+  });
+  completionCache.fetchedAt = Date.now();
   dashboardCache.fetchedAt = Date.now();
 }
 
 function clearLocalUserState(name) {
+  if (completionCache.user === name) completionCache = { user: "", data: null, fetchedAt: 0, promise: null };
   if (dashboardCache.user === name) dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
 }
 
