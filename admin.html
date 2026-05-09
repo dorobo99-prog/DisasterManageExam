@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 통계 대시보드</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --paper: #ffffff;
+      --bg: #f4f7fb;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #d97706;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.10);
+    }
+    body {
+      font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,0.16), transparent 32rem),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 42px 22px 80px; }
+    .hero {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 24px; margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .eyebrow {
+      color: var(--blue); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    h1 {
+      font-size: clamp(34px, 5vw, 56px);
+      letter-spacing: -0.055em; line-height: 1.02;
+    }
+    .hero p:last-child {
+      color: var(--muted); font-size: 16px; margin-top: 12px;
+      letter-spacing: -0.02em;
+    }
+    .token-box {
+      background: rgba(255,255,255,0.74); border: 1px solid rgba(255,255,255,0.9);
+      box-shadow: var(--shadow); border-radius: 22px; padding: 18px;
+      display: flex; gap: 10px; width: min(100%, 520px);
+    }
+    .token-box input {
+      flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 13px;
+      padding: 13px 14px; font-size: 15px; outline: none; background: var(--paper);
+    }
+    .token-box input:focus { border-color: var(--blue); }
+    button {
+      border: none; border-radius: 13px; background: var(--blue); color: white;
+      padding: 0 18px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.04); }
+    .status { color: var(--muted); font-size: 14px; margin: -10px 0 22px; min-height: 20px; }
+    .cards {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 18px;
+    }
+    .card, .panel {
+      background: rgba(255,255,255,0.84); border: 1px solid rgba(255,255,255,0.95);
+      box-shadow: var(--shadow); border-radius: 24px;
+    }
+    .card { padding: 22px; }
+    .card span {
+      display: block; color: var(--muted); font-size: 13px;
+      letter-spacing: -0.01em; margin-bottom: 8px;
+    }
+    .card strong {
+      display: block; font-size: 38px; letter-spacing: -0.05em;
+    }
+    .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; margin-bottom: 16px; }
+    .panel { padding: 22px; overflow: hidden; }
+    .panel h2 {
+      font-size: 19px; letter-spacing: -0.04em; margin-bottom: 4px;
+    }
+    .panel-sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    canvas { width: 100%; height: 280px; display: block; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 14px;
+    }
+    th, td {
+      text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    th { color: var(--muted); font-size: 12px; font-weight: 700; }
+    td { color: var(--ink); }
+    .danger { color: var(--red); font-weight: 700; }
+    .good { color: var(--green); font-weight: 700; }
+    .scroll { overflow-x: auto; }
+    .empty {
+      display: none; text-align: center; padding: 54px 18px; color: var(--muted);
+      background: rgba(255,255,255,0.72); border-radius: 22px; box-shadow: var(--shadow);
+    }
+    @media (max-width: 900px) {
+      .cards, .grid { grid-template-columns: 1fr; }
+      .token-box { width: 100%; }
+      canvas { height: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Admin Analytics</p>
+        <h1>관리자 통계<br>대시보드</h1>
+        <p>응시자, 평균점수, 문제별 오답률을 한 화면에서 확인합니다.</p>
+      </div>
+      <form class="token-box" id="token-form">
+        <input id="token-input" type="password" placeholder="ADMIN_TOKEN 입력" autocomplete="off">
+        <button type="submit">불러오기</button>
+      </form>
+    </section>
+
+    <p class="status" id="status">Vercel 환경변수에 설정한 관리자 토큰을 입력하세요.</p>
+
+    <section class="cards" id="cards" hidden>
+      <div class="card"><span>총 응시</span><strong id="stat-attempts">0</strong></div>
+      <div class="card"><span>응시자</span><strong id="stat-users">0</strong></div>
+      <div class="card"><span>평균 점수</span><strong id="stat-avg">0</strong></div>
+      <div class="card"><span>최고 점수</span><strong id="stat-best">0</strong></div>
+    </section>
+
+    <div class="empty" id="empty">아직 저장된 응시 기록이 없습니다. 누군가 시험을 채점하면 이곳에 통계가 쌓입니다.</div>
+
+    <section id="dashboard" hidden>
+      <div class="grid">
+        <div class="panel">
+          <h2>세트별 평균 점수</h2>
+          <p class="panel-sub">Gemini/GPT, 장별 평균과 응시 수를 비교합니다.</p>
+          <canvas id="set-chart" width="720" height="300"></canvas>
+        </div>
+        <div class="panel">
+          <h2>점수 분포</h2>
+          <p class="panel-sub">전체 응시 결과가 어느 구간에 몰리는지 봅니다.</p>
+          <canvas id="dist-chart" width="520" height="300"></canvas>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>닉네임별 랭킹</h2>
+          <p class="panel-sub">평균점수 기준 상위 100명입니다.</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>닉네임</th><th>응시</th><th>완료 세트</th><th>평균</th><th>최고</th></tr></thead>
+              <tbody id="nickname-table"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>많이 틀린 문제</h2>
+          <p class="panel-sub">정답률이 낮은 문제부터 보여줍니다.</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>세트</th><th>문항</th><th>응시</th><th>오답</th><th>정답률</th></tr></thead>
+              <tbody id="question-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tokenForm = document.getElementById("token-form");
+    const tokenInput = document.getElementById("token-input");
+    const statusEl = document.getElementById("status");
+
+    const savedToken = sessionStorage.getItem("admin_token") || "";
+    if (savedToken) tokenInput.value = savedToken;
+
+    tokenForm.addEventListener("submit", async function(e) {
+      e.preventDefault();
+      const token = tokenInput.value.trim();
+      if (!token) {
+        statusEl.textContent = "관리자 토큰을 입력해주세요.";
+        tokenInput.focus();
+        return;
+      }
+      sessionStorage.setItem("admin_token", token);
+      await loadStats(token);
+    });
+
+    if (savedToken) loadStats(savedToken);
+
+    async function loadStats(token) {
+      statusEl.textContent = "통계를 불러오는 중...";
+      try {
+        const res = await fetch("/api/admin_stats", {
+          headers: { "x-admin-token": token },
+          credentials: "same-origin"
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "통계를 불러오지 못했습니다.");
+        render(data);
+        statusEl.textContent = "통계가 업데이트되었습니다.";
+      } catch (err) {
+        document.getElementById("cards").hidden = true;
+        document.getElementById("dashboard").hidden = true;
+        document.getElementById("empty").style.display = "none";
+        statusEl.textContent = err.message || "통계를 불러오지 못했습니다.";
+      }
+    }
+
+    function render(data) {
+      const overall = data.overall || {};
+      document.getElementById("cards").hidden = false;
+      document.getElementById("stat-attempts").textContent = overall.attempts || 0;
+      document.getElementById("stat-users").textContent = overall.users || 0;
+      document.getElementById("stat-avg").textContent = (overall.avg_score || 0) + "점";
+      document.getElementById("stat-best").textContent = (overall.best_score || 0) + "점";
+
+      const hasData = (overall.attempts || 0) > 0;
+      document.getElementById("empty").style.display = hasData ? "none" : "block";
+      document.getElementById("dashboard").hidden = !hasData;
+      if (!hasData) return;
+
+      drawBarChart("set-chart", (data.by_set || []).map(row => ({
+        label: row.set_id,
+        value: row.avg_score || 0,
+        sub: `${row.attempts || 0}회`
+      })), { max: 100, color: "#2563eb", suffix: "점" });
+
+      drawBarChart("dist-chart", (data.distribution || []).map(row => ({
+        label: row.range,
+        value: row.count || 0,
+        sub: "명"
+      })), { color: "#16a34a", suffix: "회" });
+
+      fillNicknameTable(data.by_nickname || []);
+      fillQuestionTable(data.question_stats || []);
+    }
+
+    function fillNicknameTable(rows) {
+      document.getElementById("nickname-table").innerHTML = rows.map(r => `
+        <tr>
+          <td>${escapeHtml(r.nickname)}</td>
+          <td>${r.attempts}</td>
+          <td>${r.completed_sets}</td>
+          <td class="good">${r.avg_score}점</td>
+          <td>${r.best_score}점</td>
+        </tr>
+      `).join("");
+    }
+
+    function fillQuestionTable(rows) {
+      document.getElementById("question-table").innerHTML = rows.slice(0, 80).map(r => `
+        <tr>
+          <td>${escapeHtml(r.set_id)}</td>
+          <td>${escapeHtml(r.question_id)}</td>
+          <td>${r.attempts}</td>
+          <td class="danger">${r.wrong_count}</td>
+          <td>${r.correct_rate}%</td>
+        </tr>
+      `).join("");
+    }
+
+    function drawBarChart(id, rows, opts) {
+      const canvas = document.getElementById(id);
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      if (!rows.length) return;
+
+      const max = opts.max || Math.max(1, ...rows.map(r => r.value));
+      const left = 44;
+      const right = 20;
+      const top = 24;
+      const bottom = 58;
+      const chartW = w - left - right;
+      const chartH = h - top - bottom;
+      const gap = 12;
+      const barW = Math.max(18, (chartW - gap * (rows.length - 1)) / rows.length);
+
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, top + chartH);
+      ctx.lineTo(w - right, top + chartH);
+      ctx.stroke();
+
+      ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillStyle = "#6b7280";
+      ctx.textAlign = "right";
+      ctx.fillText(String(max), left - 8, top + 4);
+      ctx.fillText("0", left - 8, top + chartH + 4);
+
+      rows.forEach((row, i) => {
+        const x = left + i * (barW + gap);
+        const barH = max ? chartH * (row.value / max) : 0;
+        const y = top + chartH - barH;
+        const radius = 8;
+
+        ctx.fillStyle = opts.color || "#2563eb";
+        roundRect(ctx, x, y, barW, barH, radius);
+        ctx.fill();
+
+        ctx.fillStyle = "#111827";
+        ctx.textAlign = "center";
+        ctx.font = "700 12px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillText(`${row.value}${opts.suffix || ""}`, x + barW / 2, y - 7);
+
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillText(row.label, x + barW / 2, top + chartH + 22);
+        if (row.sub) ctx.fillText(row.sub, x + barW / 2, top + chartH + 40);
+      });
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      if (h < r) r = Math.max(0, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[ch]));
+    }
+  </script>
+</body>
+</html>
