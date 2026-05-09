@@ -38,7 +38,15 @@ async function withSchemaFallback(operation) {
 }
 
 function hashPin(pin, salt) {
-  return crypto.pbkdf2Sync(pin, salt, 120000, 32, 'sha256').toString('hex');
+  return new Promise(function(resolve, reject) {
+    crypto.pbkdf2(pin, salt, 120000, 32, 'sha256', function(err, derivedKey) {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(derivedKey.toString('hex'));
+    });
+  });
 }
 
 function normalizeNickname(name) {
@@ -62,7 +70,7 @@ async function findUserByNickname(nickname) {
 async function createUser(nickname, pin) {
   var id = crypto.randomUUID();
   var salt = crypto.randomBytes(16).toString('hex');
-  var pinHash = hashPin(pin, salt);
+  var pinHash = await hashPin(pin, salt);
   await withSchemaFallback(function() {
     return exec(
       'insert into exam_users (id, nickname, pin_salt, pin_hash) values ($1, $2, $3, $4)',
@@ -74,7 +82,7 @@ async function createUser(nickname, pin) {
 
 async function resetUserPinAndProgress(user, pin) {
   var salt = crypto.randomBytes(16).toString('hex');
-  var pinHash = hashPin(pin, salt);
+  var pinHash = await hashPin(pin, salt);
   await withSchemaFallback(async function() {
     await exec(
       'update exam_users set pin_salt = $1, pin_hash = $2, updated_at = now() where id = $3',
@@ -88,9 +96,9 @@ async function resetUserPinAndProgress(user, pin) {
   return { id: user.id, nickname: user.nickname };
 }
 
-function verifyPin(user, pin) {
+async function verifyPin(user, pin) {
   if (!user) return false;
-  var candidate = hashPin(pin, user.pin_salt);
+  var candidate = await hashPin(pin, user.pin_salt);
   return crypto.timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(user.pin_hash, 'hex'));
 }
 

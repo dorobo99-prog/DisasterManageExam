@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (!verifyPin(user, pin)) {
+  if (!(await verifyPin(user, pin))) {
     if (resetPin) {
       user = await resetUserPinAndProgress(user, pin);
       setAuth(res, user.nickname, user.id);

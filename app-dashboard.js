@@ -3,8 +3,10 @@ function enterSelectScreen() {
   document.getElementById("select-greeting").textContent =
     currentUser + "님, 과목을 선택하세요.";
   renderSetCards();
-  loadDashboard();
   showScreen("select");
+  setTimeout(function() {
+    if (currentUser) loadDashboard();
+  }, 0);
 }
 
 async function loadDashboard() {
