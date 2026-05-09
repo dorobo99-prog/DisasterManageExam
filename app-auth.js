@@ -60,10 +60,11 @@ async function submitLogin(resetPin) {
     }
     nameInp.style.borderColor = "";
     pinInp.style.borderColor = "";
-    if (data.reset) clearLocalUserState(name);
+    const loggedInName = data.name || name;
+    if (data.reset) clearLocalUserState(loggedInName);
     invalidateSelectCaches();
-    currentUser = name;
-    try { localStorage.setItem(LAST_USER_KEY, name); } catch(e) {}
+    currentUser = loggedInName;
+    try { localStorage.setItem(LAST_USER_KEY, loggedInName); } catch(e) {}
     enterSelectScreen();
   } catch(e) {
     if (e.message !== "unauthorized") alert("서버 연결에 실패했습니다.");
@@ -73,9 +74,14 @@ async function submitLogin(resetPin) {
 }
 
 async function changeUser() {
+  flushProgressOnLeave();
+  cancelQueuedProgressRemote();
   try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
   invalidateSelectCaches();
   currentUser = "";
+  currentSet = null;
+  pendingSet = null;
+  graded = false;
   const nameInp = document.getElementById("login-input");
   const pinInp = document.getElementById("pin-input");
   const errEl = document.getElementById("login-error");

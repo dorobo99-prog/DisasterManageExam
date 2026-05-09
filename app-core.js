@@ -23,8 +23,9 @@ let remoteSaveTimer = null;
 let queuedRemoteSave = null;
 let lastRemoteProgressSignature = "";
 let progressSyncPromise = null;
-let dashboardCache = { data: null, fetchedAt: 0, promise: null };
-let progressSummaryCache = { data: null, fetchedAt: 0, promise: null };
+let progressSyncUser = "";
+let dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
+let progressSummaryCache = { user: "", data: null, fetchedAt: 0, promise: null };
 let progressCellMap = {};
 
 // ═══ STORAGE ═════════════════════════════════════════════
@@ -38,9 +39,15 @@ function isFreshCache(cache, ttlMs) {
   return !!(cache && cache.data && (Date.now() - cache.fetchedAt) < ttlMs);
 }
 
+function isFreshUserCache(cache, ttlMs, user) {
+  return !!(cache && cache.user === user && isFreshCache(cache, ttlMs));
+}
+
 function invalidateSelectCaches() {
-  dashboardCache = { data: null, fetchedAt: 0, promise: null };
-  progressSummaryCache = { data: null, fetchedAt: 0, promise: null };
+  dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
+  progressSummaryCache = { user: "", data: null, fetchedAt: 0, promise: null };
+  progressSyncPromise = null;
+  progressSyncUser = "";
 }
 
 function progressSignature(payload) {
@@ -69,8 +76,9 @@ function saveProgress(options = {}) {
   if (options.remote !== false) queueProgressRemote(payload);
 }
 
-function saveProgressRemote(payload, keepalive) {
+function saveProgressRemote(payload, keepalive, expectedUser = currentUser) {
   if (!currentSet) return;
+  if (!expectedUser || currentUser !== expectedUser) return;
   const setId = payload.set_id || currentSet.id;
   const signature = progressSignature(payload);
   if (signature === lastRemoteProgressSignature) return;
@@ -92,14 +100,24 @@ function saveProgressRemote(payload, keepalive) {
   });
 }
 
+function cancelQueuedProgressRemote() {
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = null;
+  queuedRemoteSave = null;
+  lastRemoteProgressSignature = "";
+}
+
 function queueProgressRemote(payload) {
-  queuedRemoteSave = payload;
+  queuedRemoteSave = {
+    payload: payload,
+    user: currentUser
+  };
   clearTimeout(remoteSaveTimer);
   remoteSaveTimer = setTimeout(function() {
     const latest = queuedRemoteSave;
     queuedRemoteSave = null;
     remoteSaveTimer = null;
-    if (latest) saveProgressRemote(latest, false);
+    if (latest) saveProgressRemote(latest.payload, false, latest.user);
   }, 700);
 }
 
@@ -109,7 +127,7 @@ function flushProgressOnLeave() {
   remoteSaveTimer = null;
   queuedRemoteSave = null;
   const payload = loadProgress(currentUser, currentSet.id);
-  if (payload) saveProgressRemote(payload, true);
+  if (payload) saveProgressRemote(payload, true, currentUser);
 }
 
 function loadProgress(name, setId) {

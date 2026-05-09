@@ -5,38 +5,52 @@ function enterSelectScreen() {
   showScreen("select");
   setTimeout(function() {
     if (!currentUser) return;
-    renderSetCards();
-    loadDashboard();
+    const userAtEnter = currentUser;
+    const grid = document.getElementById("grid-exams");
+    if (isFreshUserCache(progressSummaryCache, PROGRESS_SUMMARY_CACHE_TTL_MS, userAtEnter)) {
+      renderSetCards();
+      loadDashboard();
+      return;
+    }
+    if (grid) grid.innerHTML = "";
+    loadDashboard().then(function(data) {
+      if (!data && currentUser === userAtEnter) renderSetCards();
+    });
   }, 0);
 }
 
 async function loadDashboard() {
+  const requestUser = currentUser;
   const card = document.getElementById("dashboard-card");
-  if (!card) return;
+  if (!card || !requestUser) return;
   card.classList.add("show");
   document.getElementById("dashboard-sub").textContent = "응시 기록을 불러오는 중...";
   document.getElementById("dashboard-rank").textContent = "순위 집계 중";
 
-  if (isFreshCache(dashboardCache, DASHBOARD_CACHE_TTL_MS)) {
-    renderDashboard(dashboardCache.data);
+  if (isFreshUserCache(dashboardCache, DASHBOARD_CACHE_TTL_MS, requestUser)) {
+    renderDashboard(dashboardCache.data, requestUser);
     return dashboardCache.data;
   }
-  if (dashboardCache.promise) return dashboardCache.promise;
+  if (dashboardCache.promise && dashboardCache.user === requestUser) return dashboardCache.promise;
 
   const request = api('/api/dashboard')
     .then(function(data) {
+      if (currentUser !== requestUser) return null;
       if (!data.ok || data.disabled) {
         card.classList.remove("show");
         return data;
       }
+      if (data.nickname && data.nickname !== requestUser) return null;
+      dashboardCache.user = requestUser;
       dashboardCache.data = data;
       dashboardCache.fetchedAt = Date.now();
       if (data.progress) {
+        progressSummaryCache.user = requestUser;
         progressSummaryCache.data = { ok: true, progress: data.progress };
         progressSummaryCache.fetchedAt = Date.now();
-        applyProgressSummary(progressSummaryCache.data);
+        applyProgressSummary(progressSummaryCache.data, requestUser);
       }
-      renderDashboard(data);
+      renderDashboard(data, requestUser);
       return data;
     })
     .catch(function(e) {
@@ -44,16 +58,20 @@ async function loadDashboard() {
       return null;
     })
     .finally(function() {
-      dashboardCache.promise = null;
+      if (dashboardCache.promise === request) dashboardCache.promise = null;
       if (progressSyncPromise === request) progressSyncPromise = null;
+      if (progressSyncPromise === null && progressSyncUser === requestUser) progressSyncUser = "";
     });
+  dashboardCache.user = requestUser;
   dashboardCache.promise = request;
   progressSyncPromise = request;
+  progressSyncUser = requestUser;
   return request;
 }
 
-function renderDashboard(data) {
-  syncServerCompletions(data.by_set || [], data.progress || {});
+function renderDashboard(data, userName = currentUser) {
+  if (!data || currentUser !== userName) return;
+  syncServerCompletions(data.by_set || [], data.progress || {}, userName);
 
   const summary = data.summary || {};
   document.getElementById("dashboard-sub").textContent =
@@ -77,10 +95,10 @@ function renderDashboard(data) {
     </div>`).join("") : `<div class="dashboard-row"><span>랭킹 데이터 없음</span><span>-</span></div>`;
 }
 
-function syncServerCompletions(rows, progressMap = {}) {
-  if (!currentUser || !Array.isArray(rows)) return;
+function syncServerCompletions(rows, progressMap = {}, userName = currentUser) {
+  if (!userName || !Array.isArray(rows)) return;
   const allowed = new Set(EXAM_SETS.map(set => set.id));
-  const completions = getCompletions(currentUser);
+  const completions = getCompletions(userName);
   let changed = false;
 
   EXAM_SETS.forEach(function(set) {
@@ -109,23 +127,24 @@ function syncServerCompletions(rows, progressMap = {}) {
   });
 
   if (changed) {
-    try { localStorage.setItem(completionKey(currentUser), JSON.stringify(completions)); } catch(e) {}
-    renderSetCards();
+    try { localStorage.setItem(completionKey(userName), JSON.stringify(completions)); } catch(e) {}
+    if (currentUser === userName) renderSetCards();
   }
 }
 
-function getProgressSnapshot() {
+function getProgressSnapshot(userName = currentUser) {
   const snapshot = {};
   EXAM_SETS.forEach(function(set) {
-    snapshot[set.id] = loadProgress(currentUser, set.id);
+    snapshot[set.id] = loadProgress(userName, set.id);
   });
   return snapshot;
 }
 
 function renderSetCards() {
   const grid = document.getElementById("grid-exams");
-  const completions = getCompletions(currentUser);
-  const progressMap = getProgressSnapshot();
+  const renderUser = currentUser;
+  const completions = getCompletions(renderUser);
+  const progressMap = getProgressSnapshot(renderUser);
   grid.innerHTML = "";
   EXAM_SETS.forEach(set => {
     grid.appendChild(makeSetCard(set, completions, progressMap));
@@ -182,55 +201,60 @@ async function fetchServerProgressState(setId) {
   return { found: false, progress: null };
 }
 
-function applyProgressSummary(data) {
-  if (!data || !data.progress) return;
+function applyProgressSummary(data, userName = currentUser) {
+  if (!data || !data.progress || !userName) return;
   let changed = false;
   EXAM_SETS.forEach(function(set) {
     const progress = data.progress[set.id] || null;
     if (progress) {
       try {
-        const key = progressKey(currentUser, set.id);
+        const key = progressKey(userName, set.id);
         const next = JSON.stringify(progress);
         if (localStorage.getItem(key) !== next) {
           localStorage.setItem(key, next);
           changed = true;
         }
       } catch(e) {}
-    } else if (loadProgress(currentUser, set.id)) {
+    } else if (loadProgress(userName, set.id)) {
       try {
-        localStorage.removeItem(progressKey(currentUser, set.id));
+        localStorage.removeItem(progressKey(userName, set.id));
         changed = true;
       } catch(e) {}
     }
   });
-  if (changed) renderSetCards();
+  if (changed && currentUser === userName) renderSetCards();
 }
 
 async function getProgressForSet(setId) {
-  let progress = loadProgress(currentUser, setId);
-  if (!progress && progressSyncPromise) {
+  const requestUser = currentUser;
+  let progress = loadProgress(requestUser, setId);
+  if (!progress && progressSyncPromise && progressSyncUser === requestUser) {
     try {
       await progressSyncPromise;
-      progress = loadProgress(currentUser, setId);
+      if (currentUser !== requestUser) return null;
+      progress = loadProgress(requestUser, setId);
     } catch(e) {}
   }
   if (!progress) {
     const state = await fetchServerProgressState(setId);
+    if (currentUser !== requestUser) return null;
     if (state.found) {
       progress = state.progress;
-      try { localStorage.setItem(progressKey(currentUser, setId), JSON.stringify(progress)); } catch(e) {}
+      try { localStorage.setItem(progressKey(requestUser, setId), JSON.stringify(progress)); } catch(e) {}
     } else if (!state.unknown) {
-      try { localStorage.removeItem(progressKey(currentUser, setId)); } catch(e) {}
+      try { localStorage.removeItem(progressKey(requestUser, setId)); } catch(e) {}
     }
   }
   return progress;
 }
 
 async function onSelectSet(set) {
+  const requestUser = currentUser;
   pendingSet = set;
   const prog = await getProgressForSet(set.id);
+  if (currentUser !== requestUser) return;
   const done = prog && prog.graded
-    ? (getCompletions(currentUser)[set.id] || { score: "-", correct: null, total: null, at: prog.saved_at || null })
+    ? (getCompletions(requestUser)[set.id] || { score: "-", correct: null, total: null, at: prog.saved_at || null })
     : null;
 
   if (prog && !prog.graded) {
