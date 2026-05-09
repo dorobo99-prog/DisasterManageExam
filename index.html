@@ -319,7 +319,12 @@
 
     /* ── EXAM ────────────────────────────────────────── */
     #screen-exam { background: var(--light-bg); }
-    .exam-inner { max-width: 740px; margin: 0 auto; padding: 48px 24px 80px; }
+    .exam-shell {
+      max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px;
+      display: grid; grid-template-columns: minmax(0, 740px) 260px;
+      gap: 28px; align-items: start;
+    }
+    .exam-inner { min-width: 0; }
     .exam-header {
       margin-bottom: 32px; padding-bottom: 20px;
       border-bottom: 1px solid rgba(0,0,0,0.06);
@@ -333,8 +338,91 @@
     }
     .exam-header-meta { font-size: 13px; color: var(--dim-text); letter-spacing: -0.224px; margin-top: 4px; }
 
+    .progress-panel {
+      position: sticky; top: 72px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 18px; box-shadow: rgba(0,0,0,0.10) 0 16px 44px;
+      padding: 18px; backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .progress-title {
+      font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 17px; font-weight: 600; letter-spacing: -0.28px; margin-bottom: 6px;
+    }
+    .progress-count { font-size: 13px; color: var(--body-text); letter-spacing: -0.224px; margin-bottom: 12px; }
+    .progress-track {
+      height: 8px; border-radius: 999px; background: rgba(0,0,0,0.08);
+      overflow: hidden; margin-bottom: 14px;
+    }
+    .progress-fill {
+      height: 100%; width: 0%; border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), #35c2ff);
+      transition: width 0.2s ease;
+    }
+    .progress-legend {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      font-size: 11px; color: var(--dim-text); letter-spacing: -0.08px;
+      margin-bottom: 12px;
+    }
+    .progress-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(0,0,0,0.18); }
+    .legend-dot.done { background: var(--blue); }
+    .progress-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 7px; max-height: calc(100vh - 230px); overflow: auto;
+      padding-right: 2px;
+    }
+    .progress-cell {
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      height: 34px; border-radius: 9px; border: 1px solid rgba(0,0,0,0.10);
+      color: var(--dim-text); background: var(--light-bg); cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    .progress-cell:hover { border-color: var(--blue); color: var(--blue); }
+    .progress-cell:active { transform: scale(0.96); }
+    .progress-cell.answered {
+      background: rgba(0,113,227,0.10); border-color: rgba(0,113,227,0.36);
+      color: var(--blue);
+    }
+
+    .mobile-progress {
+      display: none; position: sticky; top: 48px; z-index: 90;
+      background: rgba(245,245,247,0.94);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      padding: 10px 16px 11px;
+    }
+    .mobile-progress-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 8px;
+    }
+    .mobile-progress-count {
+      font-size: 13px; font-weight: 600; color: var(--near-black);
+      letter-spacing: -0.224px;
+    }
+    .mobile-progress-toggle {
+      font-family: inherit; font-size: 12px; color: var(--link-light);
+      background: rgba(0,113,227,0.08); border: none; border-radius: 999px;
+      padding: 6px 10px; cursor: pointer; letter-spacing: -0.12px;
+    }
+    .mobile-progress-grid {
+      display: none; grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 6px; padding-top: 10px;
+    }
+    .mobile-progress.open .mobile-progress-grid { display: grid; }
+    .mobile-progress-grid .progress-cell { height: 30px; font-size: 11px; border-radius: 8px; }
+
     .q-card { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); padding: 28px 32px; margin-bottom: 18px; }
-    @media (max-width: 600px) { .q-card { padding: 22px 18px; } }
+    @media (max-width: 900px) {
+      .exam-shell { display: block; padding: 28px 16px 72px; }
+      .progress-panel { display: none; }
+      .mobile-progress { display: block; }
+    }
+    @media (max-width: 600px) {
+      .q-card { padding: 22px 18px; }
+      .mobile-progress-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    }
 
     .q-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .q-num { font-size: 12px; font-weight: 600; color: var(--blue); letter-spacing: -0.12px; }
@@ -556,17 +644,39 @@
 
 <!-- ═══ SCREEN: EXAM ════════════════════════════════════ -->
 <div id="screen-exam" class="screen">
-  <div class="exam-inner">
-    <div class="exam-header">
-      <p class="exam-header-ai" id="exam-ai-label">—</p>
-      <p class="exam-header-title" id="exam-title">—</p>
-      <p class="exam-header-meta" id="exam-meta">—</p>
+  <div class="mobile-progress" id="mobile-progress">
+    <div class="mobile-progress-row">
+      <span class="mobile-progress-count" id="mobile-progress-count">응답 0 / 0</span>
+      <button class="mobile-progress-toggle" id="mobile-progress-toggle" type="button" onclick="toggleMobileProgress()">문항표 보기</button>
     </div>
-    <div id="questions-container"></div>
-    <div class="submit-area">
-      <p class="warning-text" id="warning-text"></p>
-      <button class="btn-submit" id="btn-submit" type="button">채점하기</button>
+    <div class="progress-track"><div class="progress-fill" id="mobile-progress-fill"></div></div>
+    <div class="mobile-progress-grid" id="mobile-progress-grid"></div>
+  </div>
+
+  <div class="exam-shell">
+    <div class="exam-inner">
+      <div class="exam-header">
+        <p class="exam-header-ai" id="exam-ai-label">—</p>
+        <p class="exam-header-title" id="exam-title">—</p>
+        <p class="exam-header-meta" id="exam-meta">—</p>
+      </div>
+      <div id="questions-container"></div>
+      <div class="submit-area">
+        <p class="warning-text" id="warning-text"></p>
+        <button class="btn-submit" id="btn-submit" type="button">채점하기</button>
+      </div>
     </div>
+
+    <aside class="progress-panel" aria-label="문제풀이 진행현황">
+      <p class="progress-title">진행현황</p>
+      <p class="progress-count" id="desktop-progress-count">응답 0 / 0</p>
+      <div class="progress-track"><div class="progress-fill" id="desktop-progress-fill"></div></div>
+      <div class="progress-legend">
+        <span><i class="legend-dot done"></i>푼 문제</span>
+        <span><i class="legend-dot"></i>아직 안 푼 문제</span>
+      </div>
+      <div class="progress-grid" id="desktop-progress-grid"></div>
+    </aside>
   </div>
 </div>
 
@@ -644,6 +754,7 @@ let graded      = false;
 let pendingSet  = null;  // set waiting for modal confirmation
 let modalResumeAction = () => { beginExam(true); closeModal(); };
 let modalRestartAction = () => { beginExam(false); closeModal(); };
+let mobileProgressOpen = false;
 
 // ═══ STORAGE ═════════════════════════════════════════════
 const LAST_USER_KEY = "exam__last_user";
@@ -1135,6 +1246,7 @@ async function reviewCompletedExam(savedData) {
 
 // ═══ RENDER ══════════════════════════════════════════════
 function renderExam(savedData) {
+  mobileProgressOpen = false;
   const aiLbl = document.getElementById("exam-ai-label");
   aiLbl.textContent = "AI 혼합 랜덤 출제";
   aiLbl.className = "exam-header-ai " + currentSet.group;
@@ -1174,6 +1286,8 @@ function renderExam(savedData) {
   });
 
   if (savedData) restoreAnswers();
+  renderProgressTracker();
+  updateProgressTracker();
 }
 
 function restoreAnswers() {
@@ -1191,11 +1305,71 @@ function restoreAnswers() {
   });
 }
 
+// ═══ PROGRESS TRACKER ═══════════════════════════════════
+function getAnsweredCount() {
+  return questions.filter(q => userAnswers[q.id] != null).length;
+}
+
+function renderProgressTracker() {
+  const desktopGrid = document.getElementById("desktop-progress-grid");
+  const mobileGrid = document.getElementById("mobile-progress-grid");
+  const mobileBox = document.getElementById("mobile-progress");
+  const mobileToggle = document.getElementById("mobile-progress-toggle");
+  if (!desktopGrid || !mobileGrid) return;
+
+  const cells = questions.map((q, idx) => `
+    <button class="progress-cell" type="button" data-qid="${q.id}" data-qidx="${idx}"
+      onclick="scrollToQuestion(${idx})" aria-label="${idx + 1}번 문제로 이동">${idx + 1}</button>
+  `).join("");
+
+  desktopGrid.innerHTML = cells;
+  mobileGrid.innerHTML = cells;
+  if (mobileBox) mobileBox.classList.remove("open");
+  if (mobileToggle) mobileToggle.textContent = "문항표 보기";
+}
+
+function updateProgressTracker() {
+  const total = questions.length;
+  const answered = getAnsweredCount();
+  const pct = total ? (answered / total) * 100 : 0;
+
+  const desktopCount = document.getElementById("desktop-progress-count");
+  const mobileCount = document.getElementById("mobile-progress-count");
+  const desktopFill = document.getElementById("desktop-progress-fill");
+  const mobileFill = document.getElementById("mobile-progress-fill");
+
+  if (desktopCount) desktopCount.textContent = `응답 ${answered} / ${total}`;
+  if (mobileCount) mobileCount.textContent = `응답 ${answered} / ${total}`;
+  if (desktopFill) desktopFill.style.width = pct + "%";
+  if (mobileFill) mobileFill.style.width = pct + "%";
+
+  document.querySelectorAll(".progress-cell").forEach(cell => {
+    const qId = cell.dataset.qid;
+    cell.classList.toggle("answered", userAnswers[qId] != null);
+  });
+}
+
+function scrollToQuestion(index) {
+  const q = questions[index];
+  if (!q) return;
+  document.getElementById("qc-" + q.id)
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function toggleMobileProgress() {
+  mobileProgressOpen = !mobileProgressOpen;
+  const mobileBox = document.getElementById("mobile-progress");
+  const mobileToggle = document.getElementById("mobile-progress-toggle");
+  if (mobileBox) mobileBox.classList.toggle("open", mobileProgressOpen);
+  if (mobileToggle) mobileToggle.textContent = mobileProgressOpen ? "문항표 닫기" : "문항표 보기";
+}
+
 // ═══ PICK / SUBMIT / GRADE ═══════════════════════════════
 function onPick(qId, optNo) {
   if (graded) return;
   userAnswers[qId] = optNo;
   document.getElementById(`r_${qId}_${optNo}`).checked = true;
+  updateProgressTracker();
   saveProgress();
 }
 
