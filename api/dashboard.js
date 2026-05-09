@@ -1,8 +1,10 @@
 const { getSession } = require('./_auth');
 const { ensureAccountTables } = require('./_account');
-const { query } = require('./_db');
+const { query, exec } = require('./_db');
 
 const GLOBAL_DASHBOARD_CACHE_TTL_MS = 60000;
+const GLOBAL_DASHBOARD_DB_CACHE_KEY = 'dashboard_global_v1';
+const GLOBAL_DASHBOARD_DB_CACHE_TTL_SECONDS = 120;
 let globalDashboardCache = {
   fetchedAt: 0,
   distributionRows: null,
@@ -15,6 +17,14 @@ async function safeQuery(sql, params) {
     return await query(sql, params || []);
   } catch (err) {
     return { rows: [], disabled: false, error: err.message || 'query_failed' };
+  }
+}
+
+async function safeExec(sql, params) {
+  try {
+    return await exec(sql, params || []);
+  } catch (err) {
+    return { affected: 0, disabled: false, error: err.message || 'exec_failed' };
   }
 }
 
@@ -36,6 +46,22 @@ function normalizeProgress(row) {
   };
 }
 
+async function readGlobalDashboardDbCache() {
+  var cached = await safeQuery(
+    'select payload from exam_cache where cache_key = $1 and expires_at > now() limit 1',
+    [GLOBAL_DASHBOARD_DB_CACHE_KEY]
+  );
+  if (cached.error || !cached.rows[0] || !cached.rows[0].payload) return null;
+  return cached.rows[0].payload;
+}
+
+async function writeGlobalDashboardDbCache(payload) {
+  await safeExec(
+    'insert into exam_cache (cache_key, payload, expires_at, updated_at) values ($1, $2::jsonb, now() + ($3 || \' seconds\')::interval, now()) on conflict (cache_key) do update set payload = excluded.payload, expires_at = excluded.expires_at, updated_at = now()',
+    [GLOBAL_DASHBOARD_DB_CACHE_KEY, JSON.stringify(payload), String(GLOBAL_DASHBOARD_DB_CACHE_TTL_SECONDS)]
+  );
+}
+
 function isFreshGlobalDashboardCache() {
   return !!(
     globalDashboardCache.distributionRows &&
@@ -46,6 +72,20 @@ function isFreshGlobalDashboardCache() {
 
 async function getGlobalDashboardStats() {
   if (isFreshGlobalDashboardCache()) {
+    return {
+      distributionRows: globalDashboardCache.distributionRows,
+      rankingRows: globalDashboardCache.rankingRows,
+      error: null
+    };
+  }
+
+  var dbCached = await readGlobalDashboardDbCache();
+  if (dbCached && Array.isArray(dbCached.distributionRows) && Array.isArray(dbCached.rankingRows)) {
+    globalDashboardCache = {
+      fetchedAt: Date.now(),
+      distributionRows: dbCached.distributionRows,
+      rankingRows: dbCached.rankingRows
+    };
     return {
       distributionRows: globalDashboardCache.distributionRows,
       rankingRows: globalDashboardCache.rankingRows,
@@ -80,6 +120,10 @@ async function getGlobalDashboardStats() {
     distributionRows: distribution.rows || [],
     rankingRows: ranking.rows || []
   };
+  await writeGlobalDashboardDbCache({
+    distributionRows: globalDashboardCache.distributionRows,
+    rankingRows: globalDashboardCache.rankingRows
+  });
 
   return {
     distributionRows: globalDashboardCache.distributionRows,
@@ -141,11 +185,7 @@ module.exports = async function handler(req, res) {
 
   var queries = [
     safeQuery(
-      'select count(*)::int as attempts, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score from exam_attempts where nickname = $1',
-      [user]
-    ),
-    safeQuery(
-      'select set_id, count(*)::int as attempts, coalesce(round(avg(score))::int, 0) as avg_score, max(score)::int as best_score, max(finished_at) as latest_at from exam_attempts where nickname = $1 group by set_id order by set_id',
+      'select set_id, count(*)::int as attempts, coalesce(round(avg(score))::int, 0) as avg_score, coalesce(max(score)::int, 0) as best_score, max(finished_at) as latest_at, grouping(set_id)::int as is_summary from exam_attempts where nickname = $1 group by grouping sets ((set_id), ()) order by is_summary desc, set_id',
       [user]
     ),
     safeQuery(
@@ -157,14 +197,11 @@ module.exports = async function handler(req, res) {
 
   var results = await Promise.all(queries);
 
-  var summary = results[0];
-  var bySet = results[1];
-  var progressRows = results[2];
-  var globalStats = results[3];
+  var userStats = results[0];
+  var progressRows = results[1];
+  var globalStats = results[2];
   var distributionRows = globalStats.distributionRows || [];
   var rankingRows = globalStats.rankingRows || [];
-  var myRank = await getUserRank(user, rankingRows);
-  var myRankRow = myRank.row;
 
   if (!session.user_id) {
     var fallbackProgressRows = await safeQuery(
@@ -174,18 +211,31 @@ module.exports = async function handler(req, res) {
     progressRows = fallbackProgressRows;
   }
 
-  if (summary.disabled) {
+  if (userStats.disabled) {
     res.json({ ok: true, disabled: true });
     return;
   }
-  if (summary.error) {
+  if (userStats.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
   }
 
-  if (bySet.error || progressRows.error || globalStats.error || myRank.error) {
+  if (progressRows.error || globalStats.error) {
     res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
     return;
+  }
+
+  var summaryRow = (userStats.rows || []).find(function(row) { return row.is_summary === 1; });
+  var bySetRows = (userStats.rows || []).filter(function(row) { return row.is_summary === 0; });
+  var summary = summaryRow || { attempts: 0, avg_score: 0, best_score: 0 };
+  var myRankRow = null;
+  if ((summary.attempts || 0) > 0) {
+    var myRank = await getUserRank(user, rankingRows);
+    if (myRank.error) {
+      res.status(500).json({ ok: false, error: '통계를 불러오지 못했습니다.' });
+      return;
+    }
+    myRankRow = myRank.row;
   }
 
   var progress = {};
@@ -212,8 +262,8 @@ module.exports = async function handler(req, res) {
   res.json({
     ok: true,
     nickname: user,
-    summary: summary.rows[0] || { attempts: 0, avg_score: 0, best_score: 0 },
-    by_set: bySet.rows,
+    summary: summary,
+    by_set: bySetRows,
     distribution: distributionRows,
     leaderboard: leaderboard,
     my_rank: myRankRow,

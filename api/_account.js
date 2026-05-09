@@ -25,6 +25,10 @@ async function ensureAccountTables() {
     'create index if not exists idx_exam_progress_nickname on exam_progress(nickname)',
     []
   );
+  await exec(
+    'create table if not exists exam_cache (cache_key text primary key, payload jsonb not null, expires_at timestamptz not null, updated_at timestamptz not null default now())',
+    []
+  );
   await execIfTableExists(
     'create index if not exists idx_exam_attempts_nickname on exam_attempts(nickname)'
   );

@@ -32,6 +32,7 @@ let progressCellMap = {};
 const LAST_USER_KEY = "exam__last_user";
 const DASHBOARD_CACHE_TTL_MS = 15000;
 const PROGRESS_SUMMARY_CACHE_TTL_MS = 15000;
+const PROGRESS_REMOTE_SAVE_DELAY_MS = 2500;
 
 function isFreshCache(cache, ttlMs) {
   return !!(cache && cache.data && (Date.now() - cache.fetchedAt) < ttlMs);
@@ -114,7 +115,7 @@ function queueProgressRemote(payload) {
     queuedRemoteSave = null;
     remoteSaveTimer = null;
     if (latest) saveProgressRemote(latest.payload, false, latest.user);
-  }, 700);
+  }, PROGRESS_REMOTE_SAVE_DELAY_MS);
 }
 
 function flushProgressOnLeave() {
