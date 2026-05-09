@@ -11,6 +11,7 @@ const CHAPTERS = {
 const PUBLIC_SETS = ['ch1', 'ch2', 'ch3', 'all'];
 const sourceCache = {};
 const poolCache = {};
+const questionIdPoolCache = {};
 let questionIndex = null;
 let answerIndex = null;
 
@@ -70,14 +71,24 @@ function getQuestionPool(chapter) {
   if (poolCache[chapter]) return poolCache[chapter];
   var sourceSets = sourceSetsForPublicSet(chapter);
   var pool = [];
+  var ids = [];
   sourceSets.forEach(function(sourceSet) {
     var questions = readSource(sourceSet);
     questions.forEach(function(question) {
-      pool.push(normalizeQuestion(question, sourceSet));
+      var normalized = normalizeQuestion(question, sourceSet);
+      pool.push(normalized);
+      ids.push(normalized.id);
     });
   });
   poolCache[chapter] = pool;
+  questionIdPoolCache[chapter] = ids;
   return poolCache[chapter];
+}
+
+function getQuestionIdPool(chapter) {
+  if (questionIdPoolCache[chapter]) return questionIdPoolCache[chapter];
+  getQuestionPool(chapter);
+  return questionIdPoolCache[chapter] || [];
 }
 
 function pickRandom(items, count) {
@@ -96,11 +107,12 @@ function pickRandom(items, count) {
 
 function selectQuestions(setId) {
   if (setId === 'all') {
-    return Object.keys(CHAPTERS).flatMap(function(chapter) {
-      return pickRandom(getQuestionPool(chapter), 20);
+    var selectedIds = Object.keys(CHAPTERS).flatMap(function(chapter) {
+      return pickRandom(getQuestionIdPool(chapter), 20);
     });
+    return getQuestionsByIds(selectedIds);
   }
-  return pickRandom(getQuestionPool(setId), 20);
+  return getQuestionsByIds(pickRandom(getQuestionIdPool(setId), 20));
 }
 
 function getQuestionsByIds(questionIds) {
