@@ -293,9 +293,9 @@ function gradeExam(serverData, options = {}) {
     }
   });
 
-  markCompletion(currentUser, currentSet.id, score, correct, total);
   invalidateSelectCaches();
   if (!options.review) saveProgress({ remote: !serverData.stats_saved });
+  markCompletion(currentUser, currentSet.id, score, correct, total);
 
   const fullResults = results.map(r => {
     const q = questionById[r.id];

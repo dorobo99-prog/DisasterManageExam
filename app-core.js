@@ -32,8 +32,6 @@ let progressCellMap = {};
 const LAST_USER_KEY = "exam__last_user";
 const DASHBOARD_CACHE_TTL_MS = 15000;
 const PROGRESS_SUMMARY_CACHE_TTL_MS = 15000;
-function progressKey(name, setId)  { return `exam_prog__${setId}__${name}`; }
-function completionKey(name)        { return `exam_done__${name}`; }
 
 function isFreshCache(cache, ttlMs) {
   return !!(cache && cache.data && (Date.now() - cache.fetchedAt) < ttlMs);
@@ -70,9 +68,7 @@ function saveProgress(options = {}) {
     started_at: examStart?.toISOString() ?? null,
     saved_at: new Date().toISOString()
   };
-  try {
-    localStorage.setItem(progressKey(currentUser, currentSet.id), JSON.stringify(payload));
-  } catch(e) {}
+  setCachedProgress(currentUser, currentSet.id, payload);
   if (options.remote !== false) queueProgressRemote(payload);
 }
 
@@ -126,16 +122,43 @@ function flushProgressOnLeave() {
   clearTimeout(remoteSaveTimer);
   remoteSaveTimer = null;
   queuedRemoteSave = null;
-  const payload = loadProgress(currentUser, currentSet.id);
+  const payload = {
+    set_id: currentSet.id,
+    answers: userAnswers,
+    graded,
+    question_ids: questions.map(q => q.id),
+    started_at: examStart?.toISOString() ?? null
+  };
   if (payload) saveProgressRemote(payload, true, currentUser);
 }
 
+function getCachedProgressMap(name) {
+  if (!name || progressSummaryCache.user !== name || !progressSummaryCache.data) return {};
+  return progressSummaryCache.data.progress || {};
+}
+
+function setCachedProgress(name, setId, progress) {
+  if (!name || !setId) return;
+  if (progressSummaryCache.user !== name || !progressSummaryCache.data) {
+    progressSummaryCache = {
+      user: name,
+      data: { ok: true, progress: {} },
+      fetchedAt: Date.now(),
+      promise: null
+    };
+  }
+  progressSummaryCache.data.progress[setId] = progress;
+  progressSummaryCache.fetchedAt = Date.now();
+}
+
 function loadProgress(name, setId) {
-  try { return JSON.parse(localStorage.getItem(progressKey(name, setId))); } catch(e) { return null; }
+  return getCachedProgressMap(name)[setId] || null;
 }
 
 function clearLocalProgress(name, setId) {
-  try { localStorage.removeItem(progressKey(name, setId)); } catch(e) {}
+  if (progressSummaryCache.user === name && progressSummaryCache.data && progressSummaryCache.data.progress) {
+    delete progressSummaryCache.data.progress[setId];
+  }
 }
 
 function clearProgress(name, setId) {
@@ -144,20 +167,54 @@ function clearProgress(name, setId) {
 }
 
 function getCompletions(name) {
-  try { return JSON.parse(localStorage.getItem(completionKey(name))) || {}; } catch(e) { return {}; }
+  if (!name || dashboardCache.user !== name || !dashboardCache.data) return {};
+  const completions = {};
+  (dashboardCache.data.by_set || []).forEach(function(row) {
+    completions[row.set_id] = {
+      score: row.best_score || row.avg_score || 0,
+      correct: null,
+      total: null,
+      at: row.latest_at || null
+    };
+  });
+  return completions;
 }
 
 function markCompletion(name, setId, score, correct, total) {
-  const d = getCompletions(name);
-  d[setId] = { score, correct, total, at: new Date().toISOString() };
-  try { localStorage.setItem(completionKey(name), JSON.stringify(d)); } catch(e) {}
+  if (!name || !setId) return;
+  setCachedProgress(name, setId, {
+    set_id: setId,
+    answers: Object.assign({}, userAnswers),
+    graded: true,
+    question_ids: questions.map(q => q.id),
+    started_at: examStart?.toISOString() ?? null,
+    saved_at: new Date().toISOString()
+  });
+  if (dashboardCache.user !== name || !dashboardCache.data) {
+    dashboardCache = {
+      user: name,
+      data: { ok: true, by_set: [], progress: getCachedProgressMap(name) },
+      fetchedAt: Date.now(),
+      promise: null
+    };
+  }
+  const rows = dashboardCache.data.by_set || [];
+  const row = rows.find(function(item) { return item.set_id === setId; });
+  if (row) {
+    row.attempts = Math.max(row.attempts || 0, 1);
+    row.avg_score = score;
+    row.best_score = Math.max(row.best_score || 0, score);
+    row.latest_at = new Date().toISOString();
+  } else {
+    rows.push({ set_id: setId, attempts: 1, avg_score: score, best_score: score, latest_at: new Date().toISOString() });
+    dashboardCache.data.by_set = rows;
+  }
+  dashboardCache.fetchedAt = Date.now();
 }
 
 function clearLocalUserState(name) {
-  try {
-    EXAM_SETS.forEach(set => localStorage.removeItem(progressKey(name, set.id)));
-    localStorage.removeItem(completionKey(name));
-  } catch(e) {}
+  if (progressSummaryCache.user === name) progressSummaryCache = { user: "", data: null, fetchedAt: 0, promise: null };
+  if (dashboardCache.user === name) dashboardCache = { user: "", data: null, fetchedAt: 0, promise: null };
 }
 
 // ═══ SCREEN ══════════════════════════════════════════════

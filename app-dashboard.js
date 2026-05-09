@@ -97,39 +97,8 @@ function renderDashboard(data, userName = currentUser) {
 
 function syncServerCompletions(rows, progressMap = {}, userName = currentUser) {
   if (!userName || !Array.isArray(rows)) return;
-  const allowed = new Set(EXAM_SETS.map(set => set.id));
-  const completions = getCompletions(userName);
-  let changed = false;
-
-  EXAM_SETS.forEach(function(set) {
-    const progress = progressMap[set.id] || null;
-    if ((!progress || !progress.graded) && completions[set.id]) {
-      delete completions[set.id];
-      changed = true;
-    }
-  });
-
-  rows.forEach(row => {
-    if (!allowed.has(row.set_id)) return;
-    const progress = progressMap[row.set_id] || null;
-    if (!progress || !progress.graded) return;
-    const next = {
-      score: row.best_score || row.avg_score || 0,
-      correct: null,
-      total: null,
-      at: row.latest_at || new Date().toISOString()
-    };
-    const prev = completions[row.set_id];
-    if (!prev || prev.score !== next.score || prev.at !== next.at) {
-      completions[row.set_id] = next;
-      changed = true;
-    }
-  });
-
-  if (changed) {
-    try { localStorage.setItem(completionKey(userName), JSON.stringify(completions)); } catch(e) {}
-    if (currentUser === userName) renderSetCards();
-  }
+  if (dashboardCache.user === userName && dashboardCache.data) dashboardCache.data.by_set = rows;
+  if (progressSummaryCache.user === userName && progressSummaryCache.data) progressSummaryCache.data.progress = progressMap;
 }
 
 function getProgressSnapshot(userName = currentUser) {
@@ -203,26 +172,10 @@ async function fetchServerProgressState(setId) {
 
 function applyProgressSummary(data, userName = currentUser) {
   if (!data || !data.progress || !userName) return;
-  let changed = false;
-  EXAM_SETS.forEach(function(set) {
-    const progress = data.progress[set.id] || null;
-    if (progress) {
-      try {
-        const key = progressKey(userName, set.id);
-        const next = JSON.stringify(progress);
-        if (localStorage.getItem(key) !== next) {
-          localStorage.setItem(key, next);
-          changed = true;
-        }
-      } catch(e) {}
-    } else if (loadProgress(userName, set.id)) {
-      try {
-        localStorage.removeItem(progressKey(userName, set.id));
-        changed = true;
-      } catch(e) {}
-    }
-  });
-  if (changed && currentUser === userName) renderSetCards();
+  progressSummaryCache.user = userName;
+  progressSummaryCache.data = data;
+  progressSummaryCache.fetchedAt = Date.now();
+  if (currentUser === userName) renderSetCards();
 }
 
 async function getProgressForSet(setId) {
@@ -240,9 +193,9 @@ async function getProgressForSet(setId) {
     if (currentUser !== requestUser) return null;
     if (state.found) {
       progress = state.progress;
-      try { localStorage.setItem(progressKey(requestUser, setId), JSON.stringify(progress)); } catch(e) {}
+      setCachedProgress(requestUser, setId, progress);
     } else if (!state.unknown) {
-      try { localStorage.removeItem(progressKey(requestUser, setId)); } catch(e) {}
+      clearLocalProgress(requestUser, setId);
     }
   }
   return progress;
