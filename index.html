@@ -57,44 +57,96 @@
 </div>
 
 <div id="screen-select" class="screen">
+
   <section class="hero">
     <p class="hero-eyebrow">재난관리사 자격시험 대비</p>
-    <h1 class="hero-title">모의고사</h1>
-    <p class="hero-sub">과목별 20문항 · 전체 모의고사 60문항 · 객관식 4지선다</p>
+    <h1 class="hero-title">내 학습현황</h1>
+    <p class="hero-sub">응시 기록을 확인하고 내 강의실에서 과목별 모의고사를 시작하세요.</p>
   </section>
 
-  <div class="select-inner">
+  <div class="select-inner learning-home">
+
     <div class="select-header">
-      <h2 id="select-greeting">과목 선택</h2>
+      <div>
+        <h2 id="select-greeting">내 학습현황</h2>
+        <p class="select-sub">오늘의 학습 상태를 확인하세요.</p>
+      </div>
       <button class="btn-change-user" type="button" onclick="changeUser()">다른 닉네임으로 변경</button>
     </div>
-    <p class="select-sub">응시할 과목을 선택하세요.</p>
 
-    <div class="dashboard-card" id="dashboard-card">
+    <div class="dashboard-card show" id="dashboard-card">
       <div class="dashboard-top">
         <div>
           <p class="dashboard-title">내 학습 대시보드</p>
           <p class="dashboard-sub" id="dashboard-sub">응시 기록을 불러오는 중...</p>
         </div>
-        <div class="dashboard-rank" id="dashboard-rank">순위 집계 중</div>
+        <div class="dashboard-rank" id="dashboard-rank">학습 현황 확인 중</div>
       </div>
+
       <div class="dashboard-metrics">
-        <div class="dashboard-metric"><strong id="dash-attempts">0</strong><span>총 응시</span></div>
-        <div class="dashboard-metric"><strong id="dash-avg">0점</strong><span>평균 점수</span></div>
-        <div class="dashboard-metric"><strong id="dash-best">0점</strong><span>최고 점수</span></div>
-        <div class="dashboard-metric"><strong id="dash-rank">-</strong><span>내 순위</span></div>
-      </div>
-      <div class="dashboard-lists">
-        <div class="dashboard-panel">
-          <h3>상위 랭킹</h3>
-          <div id="dashboard-leaderboard"></div>
+        <div class="dashboard-metric">
+          <strong id="dash-attempts">0</strong>
+          <span>총 응시</span>
+        </div>
+        <div class="dashboard-metric">
+          <strong id="dash-avg">0점</strong>
+          <span>평균 점수</span>
+        </div>
+        <div class="dashboard-metric">
+          <strong id="dash-best">0점</strong>
+          <span>최고 점수</span>
+        </div>
+        <div class="dashboard-metric">
+          <strong id="dash-rank">-</strong>
+          <span>내 순위</span>
         </div>
       </div>
     </div>
 
-    <p class="group-label">과목별 응시</p>
-    <div class="set-grid" id="grid-exams"></div>
+    <section class="home-action-card" aria-label="학습 이동 메뉴">
+      <div>
+        <p class="dashboard-title">다음 학습을 시작하세요</p>
+        <p class="select-sub">
+          내 강의실에서 장별 모의고사를 선택하고, 응시 후 오답노트로 복습할 수 있습니다.
+        </p>
+      </div>
+
+      <div class="home-action-buttons">
+        <button class="btn-primary" type="button" onclick="openClassroom()">내 강의실 들어가기</button>
+        <button class="btn-secondary" type="button" onclick="toggleLeaderboard()">상위 랭킹 보기</button>
+      </div>
+    </section>
+
+    <section class="classroom-panel" id="classroom-panel" hidden>
+      <div class="classroom-header">
+        <div>
+          <p class="group-label">내 강의실</p>
+          <h3>과목별 응시</h3>
+          <p class="select-sub">응시할 장을 선택하면 모의고사가 시작됩니다.</p>
+        </div>
+        <button class="btn-change-user" type="button" onclick="closeClassroom()">접기</button>
+      </div>
+
+      <div class="set-grid" id="grid-exams"></div>
+    </section>
+
+    <section class="leaderboard-panel" id="leaderboard-panel" hidden>
+      <div class="classroom-header">
+        <div>
+          <p class="group-label">학습 동기부여</p>
+          <h3>상위 랭킹</h3>
+          <p class="select-sub">전체 응시자 기준 상위 학습자를 확인합니다.</p>
+        </div>
+        <button class="btn-change-user" type="button" onclick="toggleLeaderboard()">접기</button>
+      </div>
+
+      <div class="dashboard-panel">
+        <div id="dashboard-leaderboard"></div>
+      </div>
+    </section>
+
   </div>
+
 </div>
 
 <div id="screen-loading" class="screen">

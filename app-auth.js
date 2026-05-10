@@ -1,4 +1,20 @@
 // ═══ LOGIN ═══════════════════════════════════════════════
+let loginWarmupStarted = false;
+
+function warmLoginApi() {
+  if (loginWarmupStarted) return;
+
+  loginWarmupStarted = true;
+
+  fetch('/api/login?warm=1', {
+    method: 'GET',
+    cache: 'no-store',
+    credentials: 'include'
+  }).catch(function() {
+    // warm-up 실패는 실제 로그인을 막지 않는다.
+  });
+}
+
 async function login() {
   submitLogin(false);
 }
@@ -92,3 +108,7 @@ async function changeUser() {
   showScreen("login");
   setTimeout(() => nameInp.focus(), 300);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+  warmLoginApi();
+});

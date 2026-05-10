@@ -22,16 +22,21 @@ function beginExam(resume) {
 async function reviewCompletedExam(savedData) {
   currentSet = pendingSet;
   pendingSet = null;
+
   if (!currentSet || !savedData) return;
 
   graded = true;
+
   document.getElementById("fab").classList.remove("show");
   document.getElementById("wrong-note-section").classList.remove("show");
+
   userAnswers = Object.assign({}, savedData.answers || {});
-  answeredCount = Object.keys(userAnswers).length;
+  answeredCount = Object.keys(userAnswers).filter(function(key) {
+    return key !== "__question_ids";
+  }).length;
+
   examStart = savedData.started_at ? new Date(savedData.started_at) : new Date();
 
-  await loadAndRenderExam(savedData);
   showScreen("loading");
   document.getElementById("loading-text").textContent =
     currentSet.chapter + " 오답노트를 불러오는 중...";
@@ -42,21 +47,32 @@ async function reviewCompletedExam(savedData) {
       body: JSON.stringify({
         set_id: currentSet.id,
         answers: userAnswers,
-        question_ids: savedData.question_ids || questions.map(function(q) { return q.id; }),
+        question_ids: savedData.question_ids || [],
         include_questions: true
       })
     });
-    if (!review.ok) throw new Error(review.error || "오답노트 로드 실패");
-    if (Array.isArray(review.questions) && review.questions.length) {
-      questions = review.questions;
-      questionById = Object.fromEntries(questions.map(function(q) { return [q.id, q]; }));
+
+    if (!review.ok) {
+      throw new Error(review.error || "오답노트 로드 실패");
     }
+
+    if (!Array.isArray(review.questions) || !review.questions.length) {
+      throw new Error("문항 데이터를 불러오지 못했습니다.");
+    }
+
+    questions = review.questions;
+    questionById = Object.fromEntries(
+      questions.map(function(q) {
+        return [q.id, q];
+      })
+    );
+
     renderExam(savedData);
     gradeExam(review, { review: true });
   } catch (e) {
     if (e.message !== "unauthorized") {
       showScreen("select");
-      alert("오답노트를 불러오지 못했습니다. 다시 시도해주세요.");
+      alert("오답노트를 불러오지 못했습니다.\n다시 시도해주세요.");
     }
   }
 }
@@ -232,19 +248,38 @@ function onPick(qId, optNo) {
 async function submitExam() {
   const missing = questions.filter(q => userAnswers[q.id] == null);
   const warn = document.getElementById("warning-text");
+
   if (missing.length) {
+    const ok = confirm(
+      `아직 ${missing.length}문제가 미답입니다.\n` +
+      "미답 문항은 오답으로 처리됩니다.\n" +
+      "그대로 채점할까요?"
+    );
+
+    if (!ok) {
+      warn.style.display = "block";
+      warn.textContent = `아직 ${missing.length}문제가 미답입니다. 계속 풀거나 다시 채점 버튼을 눌러 제출하세요.`;
+
+      document.getElementById("qc-" + missing[0].id)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      return;
+    }
+
     warn.style.display = "block";
-    warn.textContent = `아직 ${missing.length}문제가 미답입니다. 모두 답한 후 채점해주세요.`;
-    document.getElementById("qc-" + missing[0].id)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    return;
+    warn.textContent = `미답 ${missing.length}문항은 오답으로 처리됩니다.`;
+  } else {
+    warn.style.display = "none";
   }
-  warn.style.display = "none";
 
   const btn = document.getElementById("btn-submit");
-  btn.disabled = true; btn.textContent = "채점 중...";
+  btn.disabled = true;
+  btn.textContent = "채점 중...";
 
   try {
+    console.time("submit_exam_total");
+
+    console.time("submit_exam_api");
     const data = await api('/api/submit_exam', {
       method: 'POST',
       body: JSON.stringify({
@@ -254,16 +289,25 @@ async function submitExam() {
         started_at: examStart.toISOString()
       })
     });
+    console.timeEnd("submit_exam_api");
+
     if (!data.ok) throw new Error(data.error || "채점 실패");
+
     graded = true;
-    gradeExam(data);
+
+    console.time("grade_exam_render");
+    gradeExam(data, { review: true });
+    console.timeEnd("grade_exam_render");
+
+    console.timeEnd("submit_exam_total");
   } catch(e) {
     if (e.message !== "unauthorized") {
       warn.style.display = "block";
-      warn.textContent = "채점 중 오류가 발생했습니다. 다시 시도해주세요.";
+      warn.textContent = "채점 중 오류가 발생했습니다.\n다시 시도해주세요.";
     }
   } finally {
-    btn.disabled = false; btn.textContent = "채점하기";
+    btn.disabled = false;
+    btn.textContent = "채점하기";
   }
 }
 

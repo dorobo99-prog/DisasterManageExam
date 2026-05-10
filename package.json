@@ -4,6 +4,7 @@
   "private": true,
   "type": "commonjs",
   "dependencies": {
-    "@prisma/ppg": "^1.0.1"
+    "@prisma/ppg": "^1.0.1",
+    "pg": "^8.20.0"
   }
 }
