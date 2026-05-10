@@ -798,3 +798,26 @@
     box-shadow: rgba(0,0,0,0.07) 0 10px 26px;
   }
 }
+
+/* 데스크탑: 학습현황 하단 액션 버튼 크기 정리 */
+@media (min-width: 721px) {
+  .home-action-buttons .btn-primary,
+  .home-action-buttons .btn-secondary {
+    width: auto;
+    min-width: 150px;
+    max-width: 190px;
+    padding: 13px 22px;
+    font-size: 0.98rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 14px;
+  }
+
+  .home-action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+}
