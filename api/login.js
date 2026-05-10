@@ -1,5 +1,4 @@
 const { setAuth, readBody } = require('../lib/_auth');
-const { query } = require('../lib/_db');
 const {
   normalizeNickname,
   isValidPin,
@@ -9,12 +8,8 @@ const {
   verifyPin
 } = require('../lib/_account');
 
-function isProduction() {
-  return process.env.NODE_ENV === 'production';
-}
-
 function withDebug(payload, debug) {
-  if (isProduction()) {
+  if (process.env.NODE_ENV === 'production') {
     return payload;
   }
 
@@ -30,57 +25,12 @@ module.exports = async function handler(req, res) {
   const started = Date.now();
   const debug = {};
 
-function finish(payload, statusCode) {
-  debug.server_total_ms = Date.now() - started;
+  function finish(payload, statusCode) {
+    debug.server_total_ms = Date.now() - started;
 
-  res.status(statusCode || 200).json(
-    withDebug(payload, debug)
-  );
-}
-
-  /*
-   * DB warm-up 전용 요청
-   *
-   * 로그인 화면이 뜰 때 프론트에서
-   * GET /api/login?warm=1 을 한 번 호출하면
-   * 실제 로그인 전에 DB 연결을 미리 만들어둘 수 있다.
-   */
-  if (req.method === 'GET') {
-    const url = new URL(req.url, 'http://localhost');
-    const warm = url.searchParams.get('warm') === '1';
-
-    if (!warm) {
-      finish({ ok: false, error: 'Method not allowed' }, 405);
-      return;
-    }
-
-    const tWarm = Date.now();
-
-    try {
-      const result = await query('select 1 as ok', []);
-
-      debug.warm_query_ms = Date.now() - tWarm;
-      debug.driver = result.driver || 'unknown';
-
-      finish({
-        ok: true,
-        warm: true,
-        driver: result.driver || 'unknown'
-      });
-
-      return;
-    } catch (err) {
-      debug.warm_query_ms = Date.now() - tWarm;
-      debug.error = String((err && err.message) || err);
-
-      finish({
-        ok: false,
-        warm: false,
-        error: 'DB warm-up failed'
-      }, 500);
-
-      return;
-    }
+    res.status(statusCode || 200).json(
+      withDebug(payload, debug)
+    );
   }
 
   if (req.method !== 'POST') {
