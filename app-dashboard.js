@@ -42,7 +42,13 @@ function resetLearningHomePanels() {
 
   if (card) card.classList.add("show");
   if (sub) sub.textContent = "응시 기록을 불러오는 중...";
-  if (rank) rank.textContent = "학습 현황 확인 중";
+
+  if (rank) {
+    rank.hidden = false;
+    rank.textContent = "학습 현황 확인 중";
+  }
+
+  normalizeDashboardMetricGrid();
 }
 
 function isPanelOpen(id) {
@@ -318,6 +324,45 @@ async function loadLeaderboard() {
   return request;
 }
 
+function normalizeDashboardMetricGrid() {
+  const ids = ["dash-attempts", "dash-avg", "dash-best", "dash-rank"];
+
+  const metricCards = ids
+    .map(function(id) {
+      const valueEl = document.getElementById(id);
+      if (!valueEl) return null;
+
+      return (
+        valueEl.closest(".dashboard-stat") ||
+        valueEl.closest(".stat-card") ||
+        valueEl.closest(".metric-card") ||
+        valueEl.parentElement
+      );
+    })
+    .filter(Boolean);
+
+  if (!metricCards.length) return;
+
+  const grid = metricCards[0].parentElement;
+
+  if (grid) {
+    grid.classList.add("dashboard-metric-grid");
+  }
+
+  metricCards.forEach(function(card) {
+    card.classList.add("dashboard-metric-card");
+  });
+}
+
+function hideDashboardRankBadge() {
+  const rankText = document.getElementById("dashboard-rank");
+
+  if (!rankText) return;
+
+  rankText.textContent = "";
+  rankText.hidden = true;
+}
+
 function formatMyRank(data) {
   var rank = data && data.my_rank;
 
@@ -370,12 +415,8 @@ function renderDashboard(data, userName = currentUser) {
     ) ||
     null;
 
-  if (rankText) {
-    rankText.textContent =
-      completedSets > 0
-        ? `완료 ${completedSets}세트`
-        : "학습 시작 전";
-  }
+  hideDashboardRankBadge();
+  normalizeDashboardMetricGrid();
 
   if (rankEl) {
     rankEl.textContent = formatMyRank(data);
@@ -408,10 +449,8 @@ function renderRankOnly(data) {
 
     const completedSets = Number(summary.completed_sets || 0);
 
-    rankText.textContent =
-      completedSets > 0
-        ? `완료 ${completedSets}세트`
-        : "학습 시작 전";
+    hideDashboardRankBadge();
+    normalizeDashboardMetricGrid();
   }
 
   if (rankEl) {

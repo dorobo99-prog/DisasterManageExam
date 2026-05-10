@@ -821,3 +821,53 @@
     flex-shrink: 0;
   }
 }
+
+/* 학습현황 카드: 데스크탑 4열, 모바일 2×2 */
+.dashboard-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.dashboard-metric-card {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-metric-card {
+    min-height: 112px;
+    padding: 20px 18px !important;
+  }
+
+  #dash-attempts,
+  #dash-avg,
+  #dash-best,
+  #dash-rank {
+    font-size: clamp(2rem, 8vw, 2.8rem);
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-metric-grid {
+    gap: 10px !important;
+  }
+
+  .dashboard-metric-card {
+    min-height: 104px;
+    padding: 18px 16px !important;
+  }
+
+  #dash-attempts,
+  #dash-avg,
+  #dash-best,
+  #dash-rank {
+    font-size: clamp(1.8rem, 8.5vw, 2.4rem);
+  }
+}
