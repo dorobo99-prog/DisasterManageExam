@@ -196,8 +196,16 @@
     }
     .dashboard-row:first-of-type { border-top: none; }
     .dashboard-row span:last-child { color: var(--dim-text); white-space: nowrap; }
+
     @media (max-width: 720px) {
-      .dashboard-metrics, .dashboard-lists { grid-template-columns: 1fr; }
+      .dashboard-lists {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
     }
 
     .group-label {
@@ -822,32 +830,15 @@
   }
 }
 
-/* 학습현황 카드: 데스크탑 4열, 모바일 2×2 */
-.dashboard-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.dashboard-metric-card {
-  min-width: 0;
-}
-
+/* 학습현황 카드 모바일 정리 */
 @media (max-width: 720px) {
-  .dashboard-metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 12px !important;
-  }
-
-  .dashboard-metric-card {
+  .dashboard-metric {
+    min-width: 0;
     min-height: 112px;
-    padding: 20px 18px !important;
+    padding: 20px 18px;
   }
 
-  #dash-attempts,
-  #dash-avg,
-  #dash-best,
-  #dash-rank {
+  .dashboard-metric strong {
     font-size: clamp(2rem, 8vw, 2.8rem);
     line-height: 1.05;
     white-space: nowrap;
@@ -855,19 +846,16 @@
 }
 
 @media (max-width: 420px) {
-  .dashboard-metric-grid {
-    gap: 10px !important;
+  .dashboard-metrics {
+    gap: 10px;
   }
 
-  .dashboard-metric-card {
+  .dashboard-metric {
     min-height: 104px;
-    padding: 18px 16px !important;
+    padding: 18px 16px;
   }
 
-  #dash-attempts,
-  #dash-avg,
-  #dash-best,
-  #dash-rank {
+  .dashboard-metric strong {
     font-size: clamp(1.8rem, 8.5vw, 2.4rem);
   }
 }
