@@ -108,7 +108,7 @@ function toggleLeaderboard() {
 }
 
 // 기존 코드 호환용 이름 유지.
-// 이제 로그인 첫 화면에서는 /api/my_summary가 아니라 /api/my_summary를 사용한다.
+// 현재 학습현황은 /api/my_summary를 기준으로 불러온다.
 function loadDashboard() {
   return loadMySummary();
 }
@@ -276,12 +276,6 @@ async function loadLeaderboard() {
     return leaderboardCache.promise;
   }
 
-  /*
-   * 임시 구조:
-   * - 첫 화면에서는 /api/my_summary를 호출하지 않는다.
-   * - 사용자가 "상위 랭킹 보기"를 눌렀을 때만 기존 /api/my_summary를 호출한다.
-   * - 다음 단계에서 /api/leaderboard.js로 완전히 분리할 예정이다.
-   */
   const request = api("/api/leaderboard")
     .then(function(data) {
       if (currentUser !== requestUser) return null;
@@ -436,22 +430,11 @@ function renderRankOnly(data) {
       dashboardCache.data.my_rank
     ) ||
     null;
-  const rankText = document.getElementById("dashboard-rank");
+
   const rankEl = document.getElementById("dash-rank");
 
-  if (rankText) {
-    const summary =
-      dashboardCache &&
-      dashboardCache.data &&
-      dashboardCache.data.summary
-        ? dashboardCache.data.summary
-        : {};
-
-    const completedSets = Number(summary.completed_sets || 0);
-
-    hideDashboardRankBadge();
-    normalizeDashboardMetricGrid();
-  }
+  hideDashboardRankBadge();
+  normalizeDashboardMetricGrid();
 
   if (rankEl) {
     rankEl.textContent = formatMyRank({ my_rank: rank });
