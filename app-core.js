@@ -68,9 +68,20 @@ function getCompletions(name) {
   const completions = {};
   source.forEach(function(row) {
     completions[row.set_id] = {
-      score: row.best_score != null ? row.best_score : row.avg_score,
-      correct: null,
-      total: null,
+      score:
+        row.latest_score != null
+          ? row.latest_score
+          : row.best_score != null
+            ? row.best_score
+            : row.avg_score,
+      correct:
+        row.latest_correct_count != null
+          ? row.latest_correct_count
+          : null,
+      total:
+        row.latest_total_count != null
+          ? row.latest_total_count
+          : null,
       at: row.latest_at || null
     };
   });
