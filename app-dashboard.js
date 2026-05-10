@@ -102,7 +102,7 @@ function toggleLeaderboard() {
 }
 
 // 기존 코드 호환용 이름 유지.
-// 이제 로그인 첫 화면에서는 /api/dashboard가 아니라 /api/my_summary를 사용한다.
+// 이제 로그인 첫 화면에서는 /api/my_summary가 아니라 /api/my_summary를 사용한다.
 function loadDashboard() {
   return loadMySummary();
 }
@@ -272,8 +272,8 @@ async function loadLeaderboard() {
 
   /*
    * 임시 구조:
-   * - 첫 화면에서는 /api/dashboard를 호출하지 않는다.
-   * - 사용자가 "상위 랭킹 보기"를 눌렀을 때만 기존 /api/dashboard를 호출한다.
+   * - 첫 화면에서는 /api/my_summary를 호출하지 않는다.
+   * - 사용자가 "상위 랭킹 보기"를 눌렀을 때만 기존 /api/my_summary를 호출한다.
    * - 다음 단계에서 /api/leaderboard.js로 완전히 분리할 예정이다.
    */
   const request = api("/api/leaderboard")
