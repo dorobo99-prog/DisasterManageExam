@@ -79,6 +79,9 @@ function getCompletions(name) {
 
 function markCompletion(name, setId, score, correct, total) {
   if (!name || !setId) return;
+
+  const nowIso = new Date().toISOString();
+
   if (completionCache.user !== name || !completionCache.data) {
     completionCache = {
       user: name,
@@ -87,27 +90,49 @@ function markCompletion(name, setId, score, correct, total) {
       promise: null
     };
   }
-  if (dashboardCache.user !== name || !dashboardCache.data) {
-    dashboardCache = {
-      user: name,
-      data: { ok: true, by_set: [] },
-      fetchedAt: Date.now(),
-      promise: null
-    };
-  }
-  [completionCache.data.by_set, dashboardCache.data.by_set].forEach(function(rows) {
-    const row = rows.find(function(item) { return item.set_id === setId; });
-    if (row) {
-      row.attempts = Math.max(row.attempts || 0, 1);
-      row.avg_score = score;
-      row.best_score = Math.max(row.best_score || 0, score);
-      row.latest_at = new Date().toISOString();
-    } else {
-      rows.push({ set_id: setId, attempts: 1, avg_score: score, best_score: score, latest_at: new Date().toISOString() });
-    }
+
+  const rows = completionCache.data.by_set;
+
+  const row = rows.find(function(item) {
+    return item.set_id === setId;
   });
+
+  if (row) {
+    row.attempts = Math.max(row.attempts || 0, 1);
+    row.avg_score = score;
+    row.best_score = Math.max(row.best_score || 0, score);
+    row.latest_score = score;
+    row.latest_correct_count = correct;
+    row.latest_total_count = total;
+    row.latest_at = nowIso;
+  } else {
+    rows.push({
+      set_id: setId,
+      attempts: 1,
+      total_score: score,
+      avg_score: score,
+      best_score: score,
+      latest_score: score,
+      latest_correct_count: correct,
+      latest_total_count: total,
+      latest_at: nowIso
+    });
+  }
+
   completionCache.fetchedAt = Date.now();
-  dashboardCache.fetchedAt = Date.now();
+
+  /*
+   * 중요:
+   * dashboardCache에는 summary가 필요하다.
+   * 여기서 by_set만 있는 임시 데이터를 넣으면 대시보드가 0으로 뜬다.
+   * 따라서 새 채점 후 대시보드는 서버의 /api/my_summary를 다시 불러오게 한다.
+   */
+  dashboardCache = {
+    user: "",
+    data: null,
+    fetchedAt: 0,
+    promise: null
+  };
 }
 
 function clearLocalUserState(name) {

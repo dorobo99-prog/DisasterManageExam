@@ -68,7 +68,7 @@ async function reviewCompletedExam(savedData) {
     );
 
     renderExam(savedData);
-    gradeExam(review, { review: true });
+    gradeExam(review, { review: true, fromSaved: true });
   } catch (e) {
     if (e.message !== "unauthorized") {
       showScreen("select");
@@ -331,8 +331,10 @@ function gradeExam(serverData, options = {}) {
     }
   });
 
-  invalidateSelectCaches();
-  markCompletion(currentUser, currentSet.id, score, correct, total);
+  if (!options.fromSaved) {
+    invalidateSelectCaches();
+    markCompletion(currentUser, currentSet.id, score, correct, total);
+  }
 
   const fullResults = results.map(r => {
     const q = questionById[r.id];
