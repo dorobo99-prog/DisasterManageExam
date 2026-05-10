@@ -1,6 +1,10 @@
 const { getSession, readBody } = require('../lib/_auth');
 const { transaction } = require('../lib/_db');
-const { getAnswer, isAllowedPublicSet, publicSetMeta } = require('../lib/_exam_sets');
+const {
+  getAnswer,
+  isAllowedPublicSet,
+  publicSetMeta
+} = require('../lib/_exam_sets');
 
 /*
  * 속도 최적화 옵션
@@ -19,7 +23,25 @@ const { getAnswer, isAllowedPublicSet, publicSetMeta } = require('../lib/_exam_s
 const SAVE_ATTEMPT_LOG = false;
 const SAVE_EXAM_ANSWERS = false;
 
-async function updatePrecomputedStats(tx, session, setId, score, correct, total, timings) {
+function withDebug(payload, debug) {
+  if (process.env.NODE_ENV === 'production') {
+    return payload;
+  }
+
+  return Object.assign({}, payload, {
+    debug_timings: debug
+  });
+}
+
+async function updatePrecomputedStats(
+  tx,
+  session,
+  setId,
+  score,
+  correct,
+  total,
+  timings
+) {
   if (!session || !session.user_id || !session.name) return;
 
   const userId = session.user_id;
@@ -57,8 +79,7 @@ async function updatePrecomputedStats(tx, session, setId, score, correct, total,
       now(),
       now()
     )
-    on conflict (user_id, set_id)
-    do update set
+    on conflict (user_id, set_id) do update set
       nickname = excluded.nickname,
       attempts = exam_user_set_stats.attempts + 1,
       total_score = exam_user_set_stats.total_score + excluded.total_score,
@@ -107,7 +128,7 @@ async function updatePrecomputedStats(tx, session, setId, score, correct, total,
       coalesce(sum(total_score), 0)::integer,
       case
         when coalesce(sum(attempts), 0) > 0
-        then round(sum(total_score)::numeric / sum(attempts))::integer
+          then round(sum(total_score)::numeric / sum(attempts))::integer
         else 0
       end,
       coalesce(max(best_score), 0)::integer,
@@ -117,8 +138,7 @@ async function updatePrecomputedStats(tx, session, setId, score, correct, total,
     from exam_user_set_stats
     where user_id = $1
     group by user_id
-    on conflict (user_id)
-    do update set
+    on conflict (user_id) do update set
       nickname = excluded.nickname,
       attempts = excluded.attempts,
       total_score = excluded.total_score,
@@ -190,35 +210,45 @@ async function saveAttemptStats(
         const tAnswers = Date.now();
         const params = [];
 
-        const values = results.map(function(r, idx) {
-          const base = idx * 7;
+        const values = results
+          .map(function(r, idx) {
+            const base = idx * 7;
 
-          params.push(
-            attemptId,
-            user,
-            setId,
-            r.id,
-            r.my_answer,
-            r.correct_answer,
-            r.is_correct
-          );
+            params.push(
+              attemptId,
+              user,
+              setId,
+              r.id,
+              r.my_answer,
+              r.correct_answer,
+              r.is_correct
+            );
 
-          return (
-            '($' + (base + 1) +
-            ', $' + (base + 2) +
-            ', $' + (base + 3) +
-            ', $' + (base + 4) +
-            ', $' + (base + 5) +
-            ', $' + (base + 6) +
-            ', $' + (base + 7) +
-            ')'
-          );
-        }).join(', ');
+            return (
+              '($' +
+              (base + 1) +
+              ', $' +
+              (base + 2) +
+              ', $' +
+              (base + 3) +
+              ', $' +
+              (base + 4) +
+              ', $' +
+              (base + 5) +
+              ', $' +
+              (base + 6) +
+              ', $' +
+              (base + 7) +
+              ')'
+            );
+          })
+          .join(', ');
 
         await tx.exec(
           'insert into exam_answers ' +
             '(attempt_id, nickname, set_id, question_id, my_answer, correct_answer, is_correct) ' +
-            'values ' + values,
+            'values ' +
+            values,
           ...params
         );
 
@@ -340,22 +370,26 @@ module.exports = async function handler(req, res) {
 
     questionIds.forEach(function(q_id) {
       const answerInfo = getAnswer(q_id);
+
       if (!answerInfo) return;
 
-      const ans_data = answerInfo.answer;
-      const my_ans = answers[q_id] != null ? parseInt(answers[q_id], 10) : null;
-      const correct_a = parseInt(ans_data.answer, 10);
-      const is_ok = my_ans === correct_a;
+      const ansData = answerInfo.answer;
+      const myAns =
+        answers[q_id] != null
+          ? parseInt(answers[q_id], 10)
+          : null;
+      const correctAns = parseInt(ansData.answer, 10);
+      const isCorrect = myAns === correctAns;
 
-      if (is_ok) correct++;
+      if (isCorrect) correct++;
 
       results.push({
         id: q_id,
-        is_correct: is_ok,
-        my_answer: my_ans,
-        correct_answer: correct_a,
-        explanation: ans_data.explanation || '',
-        option_rationale: ans_data.option_rationale || {},
+        is_correct: isCorrect,
+        my_answer: myAns,
+        correct_answer: correctAns,
+        explanation: ansData.explanation || '',
+        option_rationale: ansData.option_rationale || {},
         provider: answerInfo.provider,
         chapter: answerInfo.chapter,
         source_set: answerInfo.source_set
@@ -386,28 +420,36 @@ module.exports = async function handler(req, res) {
     timings.save_attempt_stats_ms = Date.now() - tSave;
     timings.server_total_ms = Date.now() - serverStart;
 
-    res.json({
-      ok: true,
-      score: score,
-      correct: correct,
-      wrong: total - correct,
-      total: total,
-      results: results,
-      stats_saved: statsSaved,
-      attempt_log_saved: SAVE_ATTEMPT_LOG,
-      answer_detail_saved: SAVE_EXAM_ANSWERS,
-      debug_timings: timings
-    });
+    res.json(
+      withDebug(
+        {
+          ok: true,
+          score: score,
+          correct: correct,
+          wrong: total - correct,
+          total: total,
+          results: results,
+          stats_saved: statsSaved,
+          attempt_log_saved: SAVE_ATTEMPT_LOG,
+          answer_detail_saved: SAVE_EXAM_ANSWERS
+        },
+        timings
+      )
+    );
   } catch (err) {
     console.error('submit_exam handler failed:', err);
 
     timings.server_total_ms = Date.now() - serverStart;
     timings.handler_error = String((err && err.message) || err);
 
-    res.status(500).json({
-      ok: false,
-      error: '시험 제출 처리 중 오류가 발생했습니다.',
-      debug_timings: timings
-    });
+    res.status(500).json(
+      withDebug(
+        {
+          ok: false,
+          error: '시험 제출 처리 중 오류가 발생했습니다.'
+        },
+        timings
+      )
+    );
   }
 };

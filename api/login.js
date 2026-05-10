@@ -9,6 +9,20 @@ const {
   verifyPin
 } = require('../lib/_account');
 
+function isProduction() {
+  return process.env.NODE_ENV === 'production';
+}
+
+function withDebug(payload, debug) {
+  if (isProduction()) {
+    return payload;
+  }
+
+  return Object.assign({}, payload, {
+    debug_timings: debug
+  });
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -16,15 +30,13 @@ module.exports = async function handler(req, res) {
   const started = Date.now();
   const debug = {};
 
-  function finish(payload, statusCode) {
-    debug.server_total_ms = Date.now() - started;
+function finish(payload, statusCode) {
+  debug.server_total_ms = Date.now() - started;
 
-    res.status(statusCode || 200).json(
-      Object.assign({}, payload, {
-        debug_timings: debug
-      })
-    );
-  }
+  res.status(statusCode || 200).json(
+    withDebug(payload, debug)
+  );
+}
 
   /*
    * DB warm-up 전용 요청

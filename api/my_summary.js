@@ -1,6 +1,20 @@
 const { getSession } = require('../lib/_auth');
 const { query } = require('../lib/_db');
 
+function isProduction() {
+  return process.env.NODE_ENV === 'production';
+}
+
+function withDebug(payload, debug) {
+  if (isProduction()) {
+    return payload;
+  }
+
+  return Object.assign({}, payload, {
+    debug_timings: debug
+  });
+}
+
 function emptySummary() {
   return {
     attempts: 0,
@@ -237,19 +251,23 @@ module.exports = async function handler(req, res) {
 
     const row = result.rows && result.rows[0];
 
-    res.json({
-      ok: true,
-      nickname: session.name,
-      summary: normalizeSummary(row && row.summary),
-      by_set: normalizeBySet(row && row.by_set),
-      my_rank: normalizeRank(row && row.my_rank),
-      leaderboard: [],
-      source: 'precomputed_summary_with_rank',
-      debug_timings: {
-        ...debug,
-        server_total_ms: Date.now() - started
-      }
-    });
+    res.json(
+      withDebug(
+        {
+          ok: true,
+          nickname: session.name,
+          summary: normalizeSummary(row && row.summary),
+          by_set: normalizeBySet(row && row.by_set),
+          my_rank: normalizeRank(row && row.my_rank),
+          leaderboard: [],
+          source: 'precomputed_summary_with_rank'
+        },
+        {
+          ...debug,
+          server_total_ms: Date.now() - started
+        }
+      )
+    );
   } catch (err) {
     console.error('my_summary failed:', err);
 

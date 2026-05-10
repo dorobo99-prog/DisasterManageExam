@@ -1,6 +1,16 @@
 const { getSession } = require('../lib/_auth');
 const { query } = require('../lib/_db');
 
+function withDebug(payload, debug) {
+  if (process.env.NODE_ENV === 'production') {
+    return payload;
+  }
+
+  return Object.assign({}, payload, {
+    debug_timings: debug
+  });
+}
+
 function isMissingTableError(err) {
   const msg = String((err && (err.code || err.message)) || err || '').toLowerCase();
 
@@ -64,16 +74,20 @@ module.exports = async function handler(req, res) {
 
   try {
     if (!session.user_id) {
-      res.json({
-        ok: true,
-        nickname: session.name,
-        my_rank: null,
-        leaderboard: [],
-        source: 'no_user_id',
-        debug_timings: {
-          server_total_ms: Date.now() - started
-        }
-      });
+      res.json(
+        withDebug(
+          {
+            ok: true,
+            nickname: session.name,
+            my_rank: null,
+            leaderboard: [],
+            source: 'no_user_id'
+          },
+          {
+            server_total_ms: Date.now() - started
+          }
+        )
+      );
       return;
     }
 
@@ -171,59 +185,75 @@ module.exports = async function handler(req, res) {
     debug.driver = result.driver || 'unknown';
 
     if (result.disabled) {
-      res.json({
-        ok: true,
-        disabled: true,
-        nickname: session.name,
-        my_rank: null,
-        leaderboard: [],
-        source: 'db_disabled',
-        debug_timings: {
-          ...debug,
-          server_total_ms: Date.now() - started
-        }
-      });
+      res.json(
+        withDebug(
+          {
+            ok: true,
+            disabled: true,
+            nickname: session.name,
+            my_rank: null,
+            leaderboard: [],
+            source: 'db_disabled'
+          },
+          {
+            ...debug,
+            server_total_ms: Date.now() - started
+          }
+        )
+      );
       return;
     }
 
     const row = result.rows && result.rows[0];
 
-    res.json({
-      ok: true,
-      nickname: session.name,
-      my_rank: normalizeRank(row && row.my_rank),
-      leaderboard: normalizeLeaderboard(row && row.leaderboard),
-      source: 'precomputed_leaderboard',
-      debug_timings: {
-        ...debug,
-        server_total_ms: Date.now() - started
-      }
-    });
+    res.json(
+      withDebug(
+        {
+          ok: true,
+          nickname: session.name,
+          my_rank: normalizeRank(row && row.my_rank),
+          leaderboard: normalizeLeaderboard(row && row.leaderboard),
+          source: 'precomputed_leaderboard'
+        },
+        {
+          ...debug,
+          server_total_ms: Date.now() - started
+        }
+      )
+    );
   } catch (err) {
     console.error('leaderboard failed:', err);
 
     if (isMissingTableError(err)) {
-      res.json({
-        ok: true,
-        nickname: session.name,
-        my_rank: null,
-        leaderboard: [],
-        source: 'stats_schema_missing',
-        debug_timings: {
-          server_total_ms: Date.now() - started,
-          schema_missing: true
-        }
-      });
+      res.json(
+        withDebug(
+          {
+            ok: true,
+            nickname: session.name,
+            my_rank: null,
+            leaderboard: [],
+            source: 'stats_schema_missing'
+          },
+          {
+            server_total_ms: Date.now() - started,
+            schema_missing: true
+          }
+        )
+      );
       return;
     }
 
-    res.status(500).json({
-      ok: false,
-      error: '랭킹을 불러오지 못했습니다.',
-      debug_timings: {
-        server_total_ms: Date.now() - started,
-        error: String((err && err.message) || err)
-      }
-    });
+    res.status(500).json(
+      withDebug(
+        {
+          ok: false,
+          error: '랭킹을 불러오지 못했습니다.'
+        },
+        {
+          server_total_ms: Date.now() - started,
+          error: String((err && err.message) || err)
+        }
+      )
+    );
   }
 };
