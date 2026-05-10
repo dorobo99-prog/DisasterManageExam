@@ -157,36 +157,6 @@ module.exports = async function handler(req, res) {
         from exam_user_set_stats
         where user_id = $1
       ),
-      user_scores as (
-        select
-          user_id,
-          max(nickname) as nickname,
-          round(avg(best_score))::integer as avg_best_score,
-          count(*)::integer as completed_sets,
-          sum(attempts)::integer as attempts,
-          max(latest_at) as latest_at
-        from exam_user_set_stats
-        where attempts > 0
-        group by user_id
-      ),
-      ranked_users as (
-        select
-          row_number() over (
-            order by
-              avg_best_score desc,
-              completed_sets desc,
-              attempts desc,
-              nickname asc
-          )::integer as rank,
-          count(*) over ()::integer as total_users,
-          user_id,
-          nickname,
-          avg_best_score,
-          completed_sets,
-          attempts,
-          latest_at
-        from user_scores
-      ),
       my_rank as (
         select
           json_build_object(
@@ -196,7 +166,7 @@ module.exports = async function handler(req, res) {
             'completed_sets', completed_sets,
             'attempts', attempts
           ) as value
-        from ranked_users
+        from exam_user_rank_stats
         where user_id = $1
         limit 1
       )
@@ -260,7 +230,7 @@ module.exports = async function handler(req, res) {
           by_set: normalizeBySet(row && row.by_set),
           my_rank: normalizeRank(row && row.my_rank),
           leaderboard: [],
-          source: 'precomputed_summary_with_rank'
+          source: 'precomputed_summary_and_rank'
         },
         {
           ...debug,

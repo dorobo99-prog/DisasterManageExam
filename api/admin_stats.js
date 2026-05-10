@@ -198,44 +198,10 @@ module.exports = async function handler(req, res) {
 
       /*
        * 랭킹
-       * 첫 화면/상위 랭킹과 같은 기준:
-       * 1) 과목별 최고점 평균
-       * 2) 완료 세트 수
-       * 3) 총 응시 수
-       * 4) 닉네임
+       * 제출 시점에 미리 계산된 순위 스냅샷을 읽는다.
        */
       run(
         `
-        with user_scores as (
-          select
-            user_id,
-            max(nickname) as nickname,
-            round(avg(best_score))::integer as avg_best_score,
-            count(*)::integer as completed_sets,
-            sum(attempts)::integer as attempts,
-            max(latest_at) as latest_at
-          from exam_user_set_stats
-          where attempts > 0
-          group by user_id
-        ),
-        ranked as (
-          select
-            row_number() over (
-              order by
-                avg_best_score desc,
-                completed_sets desc,
-                attempts desc,
-                nickname asc
-            )::integer as rank,
-            count(*) over ()::integer as total_users,
-            user_id,
-            nickname,
-            avg_best_score,
-            completed_sets,
-            attempts,
-            latest_at
-          from user_scores
-        )
         select
           rank,
           total_users,
@@ -245,7 +211,7 @@ module.exports = async function handler(req, res) {
           completed_sets,
           attempts,
           latest_at
-        from ranked
+        from exam_user_rank_stats
         order by rank
         limit 100
         `,

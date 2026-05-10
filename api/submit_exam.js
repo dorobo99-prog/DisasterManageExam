@@ -1,4 +1,5 @@
 const { getSession, readBody } = require('../lib/_auth');
+const { ensureAccountTables } = require('../lib/_account');
 const { transaction } = require('../lib/_db');
 const {
   getAnswer,
@@ -156,6 +157,91 @@ async function updatePrecomputedStats(
   }
 }
 
+async function refreshPrecomputedRanks(tx, timings) {
+  const tRanks = Date.now();
+
+  await tx.exec(
+    `
+    delete from exam_user_rank_stats
+    where user_id not in (
+      select distinct user_id
+      from exam_user_set_stats
+      where attempts > 0
+    )
+    `
+  );
+
+  await tx.exec(
+    `
+    insert into exam_user_rank_stats (
+      user_id,
+      nickname,
+      rank,
+      total_users,
+      avg_best_score,
+      completed_sets,
+      attempts,
+      latest_at,
+      updated_at
+    )
+    with user_scores as (
+      select
+        user_id,
+        max(nickname) as nickname,
+        round(avg(best_score))::integer as avg_best_score,
+        count(*)::integer as completed_sets,
+        sum(attempts)::integer as attempts,
+        max(latest_at) as latest_at
+      from exam_user_set_stats
+      where attempts > 0
+      group by user_id
+    ),
+    ranked as (
+      select
+        row_number() over (
+          order by
+            avg_best_score desc,
+            completed_sets desc,
+            attempts desc,
+            nickname asc
+        )::integer as rank,
+        count(*) over ()::integer as total_users,
+        user_id,
+        nickname,
+        avg_best_score,
+        completed_sets,
+        attempts,
+        latest_at
+      from user_scores
+    )
+    select
+      user_id,
+      nickname,
+      rank,
+      total_users,
+      avg_best_score,
+      completed_sets,
+      attempts,
+      latest_at,
+      now()
+    from ranked
+    on conflict (user_id) do update set
+      nickname = excluded.nickname,
+      rank = excluded.rank,
+      total_users = excluded.total_users,
+      avg_best_score = excluded.avg_best_score,
+      completed_sets = excluded.completed_sets,
+      attempts = excluded.attempts,
+      latest_at = excluded.latest_at,
+      updated_at = now()
+    `
+  );
+
+  if (timings) {
+    timings.db_rank_stats_refresh_ms = Date.now() - tRanks;
+  }
+}
+
 async function saveAttemptStats(
   session,
   setId,
@@ -299,6 +385,8 @@ async function saveAttemptStats(
           timings
         );
 
+        await refreshPrecomputedRanks(tx, timings);
+
         if (timings) {
           timings.db_precomputed_stats_total_ms = Date.now() - tPrecomputed;
         }
@@ -343,6 +431,12 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const tSchema = Date.now();
+
+    await ensureAccountTables();
+
+    timings.db_schema_ensure_ms = Date.now() - tSchema;
+
     const tBody = Date.now();
 
     const body = await readBody(req);

@@ -95,37 +95,7 @@ module.exports = async function handler(req, res) {
 
     const result = await query(
       `
-      with user_scores as (
-        select
-          user_id,
-          max(nickname) as nickname,
-          round(avg(best_score))::integer as avg_best_score,
-          count(*)::integer as completed_sets,
-          sum(attempts)::integer as attempts,
-          max(latest_at) as latest_at
-        from exam_user_set_stats
-        where attempts > 0
-        group by user_id
-      ),
-      ranked as (
-        select
-          row_number() over (
-            order by
-              avg_best_score desc,
-              completed_sets desc,
-              attempts desc,
-              nickname asc
-          )::integer as rank,
-          count(*) over ()::integer as total_users,
-          user_id,
-          nickname,
-          avg_best_score,
-          completed_sets,
-          attempts,
-          latest_at
-        from user_scores
-      ),
-      top_leaderboard as (
+      with top_leaderboard as (
         select
           coalesce(
             json_agg(
@@ -153,7 +123,7 @@ module.exports = async function handler(req, res) {
             completed_sets,
             attempts,
             latest_at
-          from ranked
+          from exam_user_rank_stats
           order by rank
           limit 20
         ) t
@@ -170,7 +140,7 @@ module.exports = async function handler(req, res) {
             'attempts', attempts,
             'latest_at', latest_at
           ) as value
-        from ranked
+        from exam_user_rank_stats
         where user_id = $1
         limit 1
       )
@@ -213,7 +183,7 @@ module.exports = async function handler(req, res) {
           nickname: session.name,
           my_rank: normalizeRank(row && row.my_rank),
           leaderboard: normalizeLeaderboard(row && row.leaderboard),
-          source: 'precomputed_leaderboard'
+          source: 'precomputed_rank_stats'
         },
         {
           ...debug,
