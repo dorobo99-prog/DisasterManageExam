@@ -1,3 +1,4 @@
+const { ensureAccountTables } = require('../lib/_account');
 const { query } = require('../lib/_db');
 
 const ADMIN_STATS_CACHE_TTL_MS = 60000;
@@ -103,6 +104,12 @@ module.exports = async function handler(req, res) {
       );
       return;
     }
+
+    const tSchema = Date.now();
+
+    await ensureAccountTables();
+
+    debug.db_schema_ensure_ms = Date.now() - tSchema;
 
     const tQuery = Date.now();
 

@@ -1,4 +1,5 @@
 const { getSession } = require('../lib/_auth');
+const { ensureAccountTables } = require('../lib/_account');
 const { query } = require('../lib/_db');
 
 function isProduction() {
@@ -118,6 +119,12 @@ module.exports = async function handler(req, res) {
       });
       return;
     }
+
+    const tSchema = Date.now();
+
+    await ensureAccountTables();
+
+    debug.db_schema_ensure_ms = Date.now() - tSchema;
 
     const tQuery = Date.now();
 
