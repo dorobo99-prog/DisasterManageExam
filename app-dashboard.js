@@ -318,6 +318,20 @@ async function loadLeaderboard() {
   return request;
 }
 
+function formatMyRank(data) {
+  var rank = data && data.my_rank;
+
+  if (
+    rank &&
+    Number(rank.rank) > 0 &&
+    Number(rank.total_users) > 0
+  ) {
+    return Number(rank.rank) + '위 / ' + Number(rank.total_users) + '명';
+  }
+
+  return '확인 전';
+}
+
 function renderDashboard(data, userName = currentUser) {
   if (!data || currentUser !== userName) return;
 
@@ -347,22 +361,24 @@ function renderDashboard(data, userName = currentUser) {
   if (avgEl) avgEl.textContent = avgScore + "점";
   if (bestEl) bestEl.textContent = bestScore + "점";
 
-  const rank = data.my_rank;
+  const rank =
+    data.my_rank ||
+    (
+      dashboardCache &&
+      dashboardCache.data &&
+      dashboardCache.data.my_rank
+    ) ||
+    null;
 
   if (rankText) {
-    rankText.textContent = rank
-      ? `내 순위 ${rank.rank}위 · 평균최고 ${rank.avg_best_score}점`
-      : completedSets > 0
-        ? `완료 ${completedSets}세트 · 랭킹은 버튼을 눌러 확인`
-        : "아직 순위 없음";
+    rankText.textContent =
+      completedSets > 0
+        ? `완료 ${completedSets}세트`
+        : "학습 시작 전";
   }
 
   if (rankEl) {
-    rankEl.textContent = rank
-      ? `${rank.rank}위`
-      : completedSets > 0
-        ? `${completedSets}세트`
-        : "-";
+    rankEl.textContent = formatMyRank(data);
   }
 
   renderLeaderboard(data.leaderboard || []);
@@ -371,18 +387,35 @@ function renderDashboard(data, userName = currentUser) {
 function renderRankOnly(data) {
   if (!data) return;
 
-  const rank = data.my_rank;
+  const rank =
+    data.my_rank ||
+    (
+      dashboardCache &&
+      dashboardCache.data &&
+      dashboardCache.data.my_rank
+    ) ||
+    null;
   const rankText = document.getElementById("dashboard-rank");
   const rankEl = document.getElementById("dash-rank");
 
   if (rankText) {
-    rankText.textContent = rank
-      ? `내 순위 ${rank.rank}위 · 평균최고 ${rank.avg_best_score}점`
-      : "아직 순위 없음";
+    const summary =
+      dashboardCache &&
+      dashboardCache.data &&
+      dashboardCache.data.summary
+        ? dashboardCache.data.summary
+        : {};
+
+    const completedSets = Number(summary.completed_sets || 0);
+
+    rankText.textContent =
+      completedSets > 0
+        ? `완료 ${completedSets}세트`
+        : "학습 시작 전";
   }
 
   if (rankEl) {
-    rankEl.textContent = rank ? `${rank.rank}위` : "-";
+    rankEl.textContent = formatMyRank({ my_rank: rank });
   }
 }
 

@@ -22,6 +22,53 @@ function isMissingTableError(err) {
   );
 }
 
+function normalizeSummary(raw) {
+  if (!raw) return emptySummary();
+
+  return {
+    attempts: Number(raw.attempts || 0),
+    total_score: Number(raw.total_score || 0),
+    avg_score: Number(raw.avg_score || 0),
+    best_score: Number(raw.best_score || 0),
+    completed_sets: Number(raw.completed_sets || 0),
+    last_attempt_at: raw.last_attempt_at || null
+  };
+}
+
+function normalizeBySet(raw) {
+  if (!Array.isArray(raw)) return [];
+
+  return raw.map(function(item) {
+    return {
+      set_id: item.set_id,
+      attempts: Number(item.attempts || 0),
+      total_score: Number(item.total_score || 0),
+      avg_score: item.avg_score == null ? null : Number(item.avg_score),
+      best_score: item.best_score == null ? null : Number(item.best_score),
+      latest_score: item.latest_score == null ? null : Number(item.latest_score),
+      latest_correct_count:
+        item.latest_correct_count == null ? null : Number(item.latest_correct_count),
+      latest_total_count:
+        item.latest_total_count == null ? null : Number(item.latest_total_count),
+      latest_at: item.latest_at || null
+    };
+  });
+}
+
+function normalizeRank(raw) {
+  if (!raw || raw.rank == null || raw.total_users == null) {
+    return null;
+  }
+
+  return {
+    rank: Number(raw.rank || 0),
+    total_users: Number(raw.total_users || 0),
+    avg_best_score: raw.avg_best_score == null ? null : Number(raw.avg_best_score),
+    completed_sets: raw.completed_sets == null ? null : Number(raw.completed_sets),
+    attempts: raw.attempts == null ? null : Number(raw.attempts)
+  };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -95,6 +142,49 @@ module.exports = async function handler(req, res) {
           ) as by_set
         from exam_user_set_stats
         where user_id = $1
+      ),
+      user_scores as (
+        select
+          user_id,
+          max(nickname) as nickname,
+          round(avg(best_score))::integer as avg_best_score,
+          count(*)::integer as completed_sets,
+          sum(attempts)::integer as attempts,
+          max(latest_at) as latest_at
+        from exam_user_set_stats
+        where attempts > 0
+        group by user_id
+      ),
+      ranked_users as (
+        select
+          row_number() over (
+            order by
+              avg_best_score desc,
+              completed_sets desc,
+              attempts desc,
+              nickname asc
+          )::integer as rank,
+          count(*) over ()::integer as total_users,
+          user_id,
+          nickname,
+          avg_best_score,
+          completed_sets,
+          attempts,
+          latest_at
+        from user_scores
+      ),
+      my_rank as (
+        select
+          json_build_object(
+            'rank', rank,
+            'total_users', total_users,
+            'avg_best_score', avg_best_score,
+            'completed_sets', completed_sets,
+            'attempts', attempts
+          ) as value
+        from ranked_users
+        where user_id = $1
+        limit 1
       )
       select
         coalesce(
@@ -118,12 +208,14 @@ module.exports = async function handler(req, res) {
             'last_attempt_at', null
           )
         ) as summary,
-        (select by_set from my_sets) as by_set
+        (select by_set from my_sets) as by_set,
+        (select value from my_rank) as my_rank
       `,
       [session.user_id]
     );
 
     debug.db_single_query_ms = Date.now() - tQuery;
+    debug.driver = result.driver || 'unknown';
 
     if (result.disabled) {
       res.json({
@@ -145,43 +237,14 @@ module.exports = async function handler(req, res) {
 
     const row = result.rows && result.rows[0];
 
-    const summary = row && row.summary
-      ? {
-          attempts: Number(row.summary.attempts || 0),
-          total_score: Number(row.summary.total_score || 0),
-          avg_score: Number(row.summary.avg_score || 0),
-          best_score: Number(row.summary.best_score || 0),
-          completed_sets: Number(row.summary.completed_sets || 0),
-          last_attempt_at: row.summary.last_attempt_at || null
-        }
-      : emptySummary();
-
-    const bySet = Array.isArray(row && row.by_set)
-      ? row.by_set.map(function(item) {
-          return {
-            set_id: item.set_id,
-            attempts: Number(item.attempts || 0),
-            total_score: Number(item.total_score || 0),
-            avg_score: item.avg_score == null ? null : Number(item.avg_score),
-            best_score: item.best_score == null ? null : Number(item.best_score),
-            latest_score: item.latest_score == null ? null : Number(item.latest_score),
-            latest_correct_count:
-              item.latest_correct_count == null ? null : Number(item.latest_correct_count),
-            latest_total_count:
-              item.latest_total_count == null ? null : Number(item.latest_total_count),
-            latest_at: item.latest_at || null
-          };
-        })
-      : [];
-
     res.json({
       ok: true,
       nickname: session.name,
-      summary: summary,
-      by_set: bySet,
-      my_rank: null,
+      summary: normalizeSummary(row && row.summary),
+      by_set: normalizeBySet(row && row.by_set),
+      my_rank: normalizeRank(row && row.my_rank),
       leaderboard: [],
-      source: 'precomputed_single_query',
+      source: 'precomputed_summary_with_rank',
       debug_timings: {
         ...debug,
         server_total_ms: Date.now() - started
