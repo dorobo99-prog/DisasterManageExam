@@ -1,5 +1,5 @@
-const { getSession } = require('./_auth');
-const { query } = require('./_db');
+const { getSession } = require('../lib/_auth');
+const { query } = require('../lib/_db');
 
 function emptySummary() {
   return {

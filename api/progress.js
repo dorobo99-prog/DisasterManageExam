@@ -1,7 +1,7 @@
-const { getSession, readBody } = require('./_auth');
-const { withSchemaFallback } = require('./_account');
-const { query, exec } = require('./_db');
-const { isAllowedPublicSet } = require('./_exam_sets');
+const { getSession, readBody } = require('../lib/_auth');
+const { withSchemaFallback } = require('../lib/_account');
+const { query, exec } = require('../lib/_db');
+const { isAllowedPublicSet } = require('../lib/_exam_sets');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');

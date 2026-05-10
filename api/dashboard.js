@@ -1,6 +1,6 @@
-const { getSession } = require('./_auth');
-const { ensureAccountTables } = require('./_account');
-const { query, exec } = require('./_db');
+const { getSession } = require('../lib/_auth');
+const { ensureAccountTables } = require('../lib/_account');
+const { query, exec } = require('../lib/_db');
 
 const GLOBAL_DASHBOARD_CACHE_TTL_MS = 60000;
 const GLOBAL_DASHBOARD_DB_CACHE_KEY = 'dashboard_global_v1';

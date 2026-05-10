@@ -1,5 +1,5 @@
-const { setAuth, readBody } = require('./_auth');
-const { query } = require('./_db');
+const { setAuth, readBody } = require('../lib/_auth');
+const { query } = require('../lib/_db');
 const {
   normalizeNickname,
   isValidPin,
@@ -7,7 +7,7 @@ const {
   createUser,
   resetUserPinAndProgress,
   verifyPin
-} = require('./_account');
+} = require('../lib/_account');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');

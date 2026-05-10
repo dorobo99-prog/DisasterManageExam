@@ -1,6 +1,6 @@
-const { getSession } = require('./_auth');
-const { query } = require('./_db');
-const { withSchemaFallback } = require('./_account');
+const { getSession } = require('../lib/_auth');
+const { query } = require('../lib/_db');
+const { withSchemaFallback } = require('../lib/_account');
 
 function emptyResponse(nickname) {
   return {

@@ -1,4 +1,4 @@
-const { query } = require('./_db');
+const { query } = require('../lib/_db');
 
 const ADMIN_STATS_CACHE_TTL_MS = 60000;
 let adminStatsCache = {

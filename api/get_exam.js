@@ -1,5 +1,5 @@
-const { getUser } = require('./_auth');
-const { getQuestionsByIds, isAllowedPublicSet, selectQuestions } = require('./_exam_sets');
+const { getUser } = require('../lib/_auth');
+const { getQuestionsByIds, isAllowedPublicSet, selectQuestions } = require('../lib/_exam_sets');
 
 module.exports = function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');

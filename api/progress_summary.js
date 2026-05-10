@@ -1,6 +1,6 @@
-const { getSession } = require('./_auth');
-const { withSchemaFallback } = require('./_account');
-const { query } = require('./_db');
+const { getSession } = require('../lib/_auth');
+const { withSchemaFallback } = require('../lib/_account');
+const { query } = require('../lib/_db');
 
 function normalizeProgress(row) {
   if (!row) return null;

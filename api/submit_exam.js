@@ -1,6 +1,6 @@
-const { getSession, readBody } = require('./_auth');
-const { transaction } = require('./_db');
-const { getAnswer, isAllowedPublicSet, publicSetMeta } = require('./_exam_sets');
+const { getSession, readBody } = require('../lib/_auth');
+const { transaction } = require('../lib/_db');
+const { getAnswer, isAllowedPublicSet, publicSetMeta } = require('../lib/_exam_sets');
 
 /*
  * 속도 최적화 옵션

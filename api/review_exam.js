@@ -1,5 +1,5 @@
-const { getUser, readBody } = require('./_auth');
-const { getAnswer, getQuestionsByIds, isAllowedPublicSet } = require('./_exam_sets');
+const { getUser, readBody } = require('../lib/_auth');
+const { getAnswer, getQuestionsByIds, isAllowedPublicSet } = require('../lib/_exam_sets');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
