@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>재난관리사 모의고사</title>
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <span class="nav-title">재난관리사 모의고사</span>
+    <span class="nav-user" id="nav-user"></span>
+    <span class="nav-back" id="nav-back" onclick="goToSelect()">← 과목 선택</span>
+  </div>
+</nav>
+
+<div id="screen-login" class="screen active">
+  <section class="hero">
+    <p class="hero-eyebrow">재난관리사 자격시험 대비</p>
+    <h1 class="hero-title">모의고사</h1>
+    <p class="hero-sub">과목별 20문항 · 전체 모의고사 60문항 · 객관식 4지선다</p>
+  </section>
+
+  <div class="login-wrap">
+    <h2>응시자 확인</h2>
+    <p>닉네임과 본인이 정한 PIN을 입력하세요.</p>
+    <div class="login-field">
+      <input
+        type="text"
+        class="name-input"
+        id="login-input"
+        placeholder="닉네임 입력"
+        maxlength="30"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+      <input
+        type="password"
+        class="name-input"
+        id="pin-input"
+        placeholder="PIN 4자리"
+        inputmode="numeric"
+        maxlength="4"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+      <p class="login-error" id="login-error"></p>
+      <button class="btn-primary" id="btn-login" type="button">시작하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-select" class="screen">
+
+  <section class="hero">
+    <p class="hero-eyebrow">재난관리사 자격시험 대비</p>
+    <h1 class="hero-title">모의고사 선택</h1>
+    <p class="hero-sub">과목을 먼저 선택하세요. 내 통계는 아래에서 따로 불러옵니다.</p>
+  </section>
+
+  <div class="select-inner learning-home">
+
+    <div class="select-header">
+      <div>
+        <h2 id="select-greeting">모의고사 선택</h2>
+        <p class="select-sub">응시할 과목을 선택하면 바로 모의고사가 시작됩니다.</p>
+      </div>
+      <button class="btn-change-user" type="button" onclick="changeUser()">다른 닉네임으로 변경</button>
+    </div>
+
+    <section class="classroom-panel exam-first-panel" id="classroom-panel">
+      <div class="classroom-header">
+        <div>
+          <p class="group-label">내 강의실</p>
+          <h3>과목별 응시</h3>
+          <p class="select-sub">응시할 장을 선택하면 모의고사가 시작됩니다.</p>
+        </div>
+      </div>
+
+      <div class="set-grid" id="grid-exams"></div>
+    </section>
+
+    <div class="dashboard-card show stats-late-panel" id="dashboard-card">
+      <div class="dashboard-top">
+        <div>
+          <p class="dashboard-title">내 학습 대시보드</p>
+          <p class="dashboard-sub" id="dashboard-sub">모의고사 카드는 바로 이용할 수 있습니다. 통계만 따로 불러오는 중...</p>
+        </div>
+        <div class="dashboard-rank" id="dashboard-rank">학습 현황 확인 중</div>
+      </div>
+
+      <div class="dashboard-metrics">
+        <div class="dashboard-metric">
+          <strong id="dash-attempts">0</strong>
+          <span>총 응시</span>
+        </div>
+        <div class="dashboard-metric">
+          <strong id="dash-avg">0점</strong>
+          <span>평균 점수</span>
+        </div>
+        <div class="dashboard-metric">
+          <strong id="dash-best">0점</strong>
+          <span>최고 점수</span>
+        </div>
+        <div class="dashboard-metric">
+          <strong id="dash-rank">-</strong>
+          <span>내 순위</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="home-action-card stats-action-card" aria-label="학습 보조 메뉴">
+      <div>
+        <p class="dashboard-title">학습 기록 더 보기</p>
+        <p class="select-sub">
+          시험 선택은 위에서 바로 할 수 있습니다. 랭킹과 세부 기록은 필요할 때 확인하세요.
+        </p>
+      </div>
+
+      <div class="home-action-buttons">
+        <button class="btn-secondary" type="button" onclick="toggleLeaderboard()">상위 랭킹 보기</button>
+      </div>
+    </section>
+
+    <section class="leaderboard-panel" id="leaderboard-panel" hidden>
+      <div class="classroom-header">
+        <div>
+          <p class="group-label">학습 동기부여</p>
+          <h3>상위 랭킹</h3>
+          <p class="select-sub">전체 응시자 기준 상위 학습자를 확인합니다.</p>
+        </div>
+        <button class="btn-change-user" type="button" onclick="toggleLeaderboard()">접기</button>
+      </div>
+
+      <div class="dashboard-panel">
+        <div id="dashboard-leaderboard"></div>
+      </div>
+    </section>
+
+  </div>
+
+</div>
+
+<div id="screen-loading" class="screen">
+  <div class="spinner"></div>
+  <p class="loading-text" id="loading-text">문제를 불러오는 중...</p>
+</div>
+
+<div id="screen-exam" class="screen">
+  <div class="mobile-progress" id="mobile-progress">
+    <div class="mobile-progress-row">
+      <span class="mobile-progress-count" id="mobile-progress-count">응답 0 / 0</span>
+      <button class="mobile-progress-toggle" id="mobile-progress-toggle" type="button" onclick="toggleMobileProgress()">문항표 보기</button>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="mobile-progress-fill"></div></div>
+    <div class="mobile-progress-grid" id="mobile-progress-grid"></div>
+  </div>
+
+  <div class="exam-shell">
+    <div class="exam-inner">
+      <div class="exam-header">
+        <p class="exam-header-ai" id="exam-ai-label">—</p>
+        <p class="exam-header-title" id="exam-title">—</p>
+        <p class="exam-header-meta" id="exam-meta">—</p>
+      </div>
+      <div id="questions-container"></div>
+      <div class="submit-area">
+        <p class="warning-text" id="warning-text"></p>
+        <button class="btn-submit" id="btn-submit" type="button">채점하기</button>
+      </div>
+    </div>
+
+    <aside class="progress-panel" aria-label="문제풀이 진행현황">
+      <p class="progress-title">진행현황</p>
+      <p class="progress-count" id="desktop-progress-count">응답 0 / 0</p>
+      <div class="progress-track"><div class="progress-fill" id="desktop-progress-fill"></div></div>
+      <div class="progress-legend">
+        <span><i class="legend-dot done"></i>푼 문제</span>
+        <span><i class="legend-dot"></i>아직 안 푼 문제</span>
+      </div>
+      <div class="progress-grid" id="desktop-progress-grid"></div>
+    </aside>
+  </div>
+</div>
+
+<div id="screen-results" class="screen">
+  <div class="results-hero">
+    <p class="result-eyebrow">시험 결과</p>
+    <div class="result-score-num" id="result-score">—</div>
+    <p class="result-msg" id="result-msg">—</p>
+    <div class="result-stats">
+      <div class="stat-item"><div class="stat-n c" id="stat-c">—</div><div class="stat-label">정답</div></div>
+      <div class="stat-item"><div class="stat-n w" id="stat-w">—</div><div class="stat-label">오답</div></div>
+      <div class="stat-item"><div class="stat-n t" id="stat-t">—</div><div class="stat-label">총 문항</div></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn-action-blue" type="button" onclick="downloadResult()">결과 저장 (JSON)</button>
+    </div>
+  </div>
+
+  <div class="wrong-note-section" id="wrong-note-section">
+    <div class="wrong-inner">
+      <h2 class="section-title">오답 노트</h2>
+      <p class="section-sub" id="wrong-sub">—</p>
+      <div id="wrong-cards"></div>
+    </div>
+  </div>
+
+  <div class="back-to-select">
+    <button class="btn-primary" style="max-width:260px" type="button" onclick="goToSelect()">← 과목 선택으로 돌아가기</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <p class="modal-title" id="modal-title">이어서 풀기</p>
+    <p class="modal-desc" id="modal-desc">—</p>
+    <div class="modal-actions">
+      <button class="btn-modal-primary" id="btn-modal-resume" type="button">이어서 풀기</button>
+      <button class="btn-modal-secondary" id="btn-modal-restart" type="button">처음부터 다시</button>
+      <button class="btn-modal-cancel" type="button" onclick="closeModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fab" type="button" onclick="downloadResult()">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+    <path d="M8 1v9M8 10l-3-3M8 10l3-3M2 12v1.5A1.5 1.5 0 003.5 15h9A1.5 1.5 0 0014 13.5V12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  JSON 저장
+</button>
+
+<footer>
+  <p>재난관리사 모의고사 · AI 혼합 랜덤 출제 · 총 600문항</p>
+</footer>
+
+<script src="app-core.js"></script>
+<script src="app-auth.js"></script>
+<script src="app-dashboard.js"></script>
+<script src="app-exam.js"></script>
+<script src="app-boot.js"></script>
+</body>
+</html>
