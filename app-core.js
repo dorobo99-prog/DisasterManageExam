@@ -16,6 +16,7 @@ let answeredCount = 0;
 let examStart   = null;
 let graded      = false;
 let pendingSet  = null;
+let directStartConsumed = false;
 let modalResumeAction = () => { beginExam(true); closeModal(); };
 let modalRestartAction = () => { beginExam(false); closeModal(); };
 let mobileProgressOpen = false;

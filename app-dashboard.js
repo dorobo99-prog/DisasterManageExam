@@ -62,7 +62,33 @@ function getSelectEntryTarget() {
   }
 }
 
+function getDirectStartSet() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const setId = params.get("start");
+    return EXAM_SETS.find(function(set) {
+      return set.id === setId;
+    }) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function handleSelectEntryTarget() {
+  const directSet = getDirectStartSet();
+
+  if (directSet && !directStartConsumed) {
+    directStartConsumed = true;
+
+    setTimeout(function() {
+      if (!currentUser) return;
+      pendingSet = directSet;
+      beginExam(false);
+    }, 0);
+
+    return;
+  }
+
   const target = getSelectEntryTarget();
 
   if (target !== "exam-cards") return;

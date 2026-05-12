@@ -501,6 +501,16 @@ body {
   box-shadow: var(--shadow-md);
   border-color: var(--donga-accent);
 }
+.subject-card.inactive {
+  cursor: default;
+}
+.subject-card.inactive:hover {
+  box-shadow: none;
+  border-color: var(--border);
+}
+.subject-card.inactive .subject-arrow {
+  visibility: hidden;
+}
 .subject-num {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -933,7 +943,7 @@ body {
     <h2 class="section-heading">3개 과목 완벽 대비</h2>
     <p class="section-sub">공인재난관리사 자격시험 3개 필수 과목 전체를 체계적으로 학습하세요.</p>
     <div class="subjects-grid">
-      <a href="/index.html?next=exam-cards" class="subject-card">
+      <a href="/index.html?start=ch1" class="subject-card">
         <span class="subject-num">SUBJECT 01</span>
         <div class="subject-name">재난의 이해</div>
         <div class="subject-meta">
@@ -945,7 +955,7 @@ body {
           </span>
         </div>
       </a>
-      <a href="/index.html?next=exam-cards" class="subject-card">
+      <a href="/index.html?start=ch2" class="subject-card">
         <span class="subject-num">SUBJECT 02</span>
         <div class="subject-name">재난의 분류</div>
         <div class="subject-meta">
@@ -957,7 +967,7 @@ body {
           </span>
         </div>
       </a>
-      <a href="/index.html?next=exam-cards" class="subject-card">
+      <a href="/index.html?start=ch3" class="subject-card">
         <span class="subject-num">SUBJECT 03</span>
         <div class="subject-name">재난관리단계</div>
         <div class="subject-meta">
@@ -969,7 +979,7 @@ body {
           </span>
         </div>
       </a>
-      <a href="/index.html?next=exam-cards" class="subject-card" style="border-color: var(--donga-accent); background: var(--donga-pale2);">
+      <a href="/index.html?start=all" class="subject-card" style="border-color: var(--donga-accent); background: var(--donga-pale2);">
         <span class="subject-num" style="color: var(--donga-blue);">FULL EXAM</span>
         <div class="subject-name">전체 모의고사 (60문항)</div>
         <div class="subject-meta">
@@ -981,7 +991,7 @@ body {
           </span>
         </div>
       </a>
-      <a href="/index.html?next=exam-cards" class="subject-card">
+      <div class="subject-card inactive">
         <span class="subject-num">REVIEW</span>
         <div class="subject-name">오답 노트 복습</div>
         <div class="subject-meta">
@@ -992,8 +1002,8 @@ body {
             </svg>
           </span>
         </div>
-      </a>
-      <a href="/index.html?next=exam-cards" class="subject-card">
+      </div>
+      <div class="subject-card inactive">
         <span class="subject-num">RANKING</span>
         <div class="subject-name">상위 랭킹 확인</div>
         <div class="subject-meta">
@@ -1004,7 +1014,7 @@ body {
             </svg>
           </span>
         </div>
-      </a>
+      </div>
     </div>
   </div>
 </div>
