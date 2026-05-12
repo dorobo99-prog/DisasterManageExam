@@ -677,6 +677,19 @@
   margin-top: 4px;
 }
 
+.exam-first-panel {
+  margin-top: 0;
+  margin-bottom: 44px;
+}
+
+.stats-late-panel {
+  margin-top: 0;
+}
+
+.stats-action-card {
+  margin-top: -10px;
+}
+
 .leaderboard-panel .dashboard-panel {
   background: var(--light-bg);
 }

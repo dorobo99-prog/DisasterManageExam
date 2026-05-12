@@ -17,23 +17,25 @@ function enterSelectScreen() {
   const greeting = document.getElementById("select-greeting");
 
   if (greeting) {
-    greeting.textContent = currentUser + "님, 내 학습현황입니다.";
+    greeting.textContent = currentUser + "님, 모의고사를 선택하세요.";
   }
 
   resetLearningHomePanels();
   showScreen("select");
+  renderSetCards();
+  handleSelectEntryTarget();
 
   setTimeout(function() {
     if (!currentUser) return;
     loadMySummary();
-  }, 0);
+  }, 300);
 }
 
 function resetLearningHomePanels() {
   const classroom = document.getElementById("classroom-panel");
   const leaderboard = document.getElementById("leaderboard-panel");
 
-  if (classroom) classroom.hidden = true;
+  if (classroom) classroom.hidden = false;
   if (leaderboard) leaderboard.hidden = true;
 
   const card = document.getElementById("dashboard-card");
@@ -49,6 +51,28 @@ function resetLearningHomePanels() {
   }
 
   normalizeDashboardMetricGrid();
+}
+
+function getSelectEntryTarget() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("next") || window.location.hash.replace(/^#/, "");
+  } catch (e) {
+    return "";
+  }
+}
+
+function handleSelectEntryTarget() {
+  const target = getSelectEntryTarget();
+
+  if (target !== "exam-cards") return;
+
+  setTimeout(function() {
+    const classroom = document.getElementById("classroom-panel");
+    if (classroom) {
+      classroom.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+  }, 0);
 }
 
 function isPanelOpen(id) {
@@ -82,7 +106,7 @@ function openClassroom() {
 function closeClassroom() {
   const classroom = document.getElementById("classroom-panel");
 
-  if (classroom) classroom.hidden = true;
+  if (classroom) classroom.hidden = false;
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -95,7 +119,7 @@ function toggleLeaderboard() {
 
   const willOpen = leaderboard.hidden;
 
-  if (classroom) classroom.hidden = true;
+  if (classroom) classroom.hidden = false;
   leaderboard.hidden = !willOpen;
 
   if (willOpen) {

@@ -60,25 +60,37 @@
 
   <section class="hero">
     <p class="hero-eyebrow">재난관리사 자격시험 대비</p>
-    <h1 class="hero-title">내 학습현황</h1>
-    <p class="hero-sub">응시 기록을 확인하고 내 강의실에서 과목별 모의고사를 시작하세요.</p>
+    <h1 class="hero-title">모의고사 선택</h1>
+    <p class="hero-sub">과목을 먼저 선택하세요. 내 통계는 아래에서 따로 불러옵니다.</p>
   </section>
 
   <div class="select-inner learning-home">
 
     <div class="select-header">
       <div>
-        <h2 id="select-greeting">내 학습현황</h2>
-        <p class="select-sub">오늘의 학습 상태를 확인하세요.</p>
+        <h2 id="select-greeting">모의고사 선택</h2>
+        <p class="select-sub">응시할 과목을 선택하면 바로 모의고사가 시작됩니다.</p>
       </div>
       <button class="btn-change-user" type="button" onclick="changeUser()">다른 닉네임으로 변경</button>
     </div>
 
-    <div class="dashboard-card show" id="dashboard-card">
+    <section class="classroom-panel exam-first-panel" id="classroom-panel">
+      <div class="classroom-header">
+        <div>
+          <p class="group-label">내 강의실</p>
+          <h3>과목별 응시</h3>
+          <p class="select-sub">응시할 장을 선택하면 모의고사가 시작됩니다.</p>
+        </div>
+      </div>
+
+      <div class="set-grid" id="grid-exams"></div>
+    </section>
+
+    <div class="dashboard-card show stats-late-panel" id="dashboard-card">
       <div class="dashboard-top">
         <div>
           <p class="dashboard-title">내 학습 대시보드</p>
-          <p class="dashboard-sub" id="dashboard-sub">응시 기록을 불러오는 중...</p>
+          <p class="dashboard-sub" id="dashboard-sub">모의고사 카드는 바로 이용할 수 있습니다. 통계만 따로 불러오는 중...</p>
         </div>
         <div class="dashboard-rank" id="dashboard-rank">학습 현황 확인 중</div>
       </div>
@@ -103,31 +115,17 @@
       </div>
     </div>
 
-    <section class="home-action-card" aria-label="학습 이동 메뉴">
+    <section class="home-action-card stats-action-card" aria-label="학습 보조 메뉴">
       <div>
-        <p class="dashboard-title">다음 학습을 시작하세요</p>
+        <p class="dashboard-title">학습 기록 더 보기</p>
         <p class="select-sub">
-          내 강의실에서 장별 모의고사를 선택하고, 응시 후 오답노트로 복습할 수 있습니다.
+          시험 선택은 위에서 바로 할 수 있습니다. 랭킹과 세부 기록은 필요할 때 확인하세요.
         </p>
       </div>
 
       <div class="home-action-buttons">
-        <button class="btn-primary" type="button" onclick="openClassroom()">과목별 모의고사 보기</button>
         <button class="btn-secondary" type="button" onclick="toggleLeaderboard()">상위 랭킹 보기</button>
       </div>
-    </section>
-
-    <section class="classroom-panel" id="classroom-panel" hidden>
-      <div class="classroom-header">
-        <div>
-          <p class="group-label">내 강의실</p>
-          <h3>과목별 응시</h3>
-          <p class="select-sub">응시할 장을 선택하면 모의고사가 시작됩니다.</p>
-        </div>
-        <button class="btn-change-user" type="button" onclick="closeClassroom()">접기</button>
-      </div>
-
-      <div class="set-grid" id="grid-exams"></div>
     </section>
 
     <section class="leaderboard-panel" id="leaderboard-panel" hidden>
