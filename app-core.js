@@ -3,7 +3,9 @@ const EXAM_SETS = [
   { id:"ch1", group:"chapter", label:"과목", chapter:"1장 재난의 이해",  count:20, filePrefix:"1장재난의이해" },
   { id:"ch2", group:"chapter", label:"과목", chapter:"2장 재난의 분류",  count:20, filePrefix:"2장재난의분류" },
   { id:"ch3", group:"chapter", label:"과목", chapter:"3장 재난관리단계", count:20, filePrefix:"3장재난관리단계" },
-  { id:"all", group:"all",     label:"전체", chapter:"전체 과목 모의고사", count:60, filePrefix:"전체과목모의고사" },
+  { id:"ch5", group:"chapter", label:"과목", chapter:"5장 재난관리 행정체계", count:20, filePrefix:"5장재난관리행정체계" },
+  { id:"ch6", group:"chapter", label:"과목", chapter:"6장 미래 재난 관리", count:20, filePrefix:"6장미래재난관리" },
+  { id:"all", group:"all",     label:"전체", chapter:"전체 과목 모의고사", count:100, filePrefix:"전체과목모의고사" },
 ];
 
 // ═══ STATE ═══════════════════════════════════════════════
