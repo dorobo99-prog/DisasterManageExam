@@ -1,12 +1,17 @@
 // ═══ CONFIG ══════════════════════════════════════════════
 const EXAM_SETS = [
-  { id:"ch1", group:"chapter", label:"과목", chapter:"1장 재난의 이해",  count:20, filePrefix:"1장재난의이해" },
-  { id:"ch2", group:"chapter", label:"과목", chapter:"2장 재난의 분류",  count:20, filePrefix:"2장재난의분류" },
-  { id:"ch3", group:"chapter", label:"과목", chapter:"3장 재난관리단계", count:20, filePrefix:"3장재난관리단계" },
-  { id:"ch4", group:"chapter", label:"과목", chapter:"4장 재난관리 계획", count:20, filePrefix:"4장재난관리계획" },
-  { id:"ch5", group:"chapter", label:"과목", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:20, filePrefix:"5장재난관리행정체계및조직의변천" },
-  { id:"ch6", group:"chapter", label:"과목", chapter:"6장 미래 재난 관리", count:20, filePrefix:"6장미래재난관리" },
-  { id:"all", group:"all",     label:"전체", chapter:"전체 과목 모의고사", count:100, filePrefix:"전체과목모의고사" },
+  { id:"gemini_ch1", group:"gemini", label:"Gemini", chapter:"1장 재난의 이해", count:100, filePrefix:"Gemini_1장재난의이해" },
+  { id:"gemini_ch2", group:"gemini", label:"Gemini", chapter:"2장 재난의 분류", count:100, filePrefix:"Gemini_2장재난의분류" },
+  { id:"gemini_ch3", group:"gemini", label:"Gemini", chapter:"3장 재난관리단계", count:100, filePrefix:"Gemini_3장재난관리단계" },
+  { id:"gemini_ch4", group:"gemini", label:"Gemini", chapter:"4장 재난관리 계획", count:100, filePrefix:"Gemini_4장재난관리계획" },
+  { id:"gemini_ch5", group:"gemini", label:"Gemini", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:100, filePrefix:"Gemini_5장재난관리행정체계및조직의변천" },
+  { id:"gemini_ch6", group:"gemini", label:"Gemini", chapter:"6장 미래 재난 관리", count:100, filePrefix:"Gemini_6장미래재난관리" },
+  { id:"gpt_ch1", group:"gpt", label:"ChatGPT", chapter:"1장 재난의 이해", count:100, filePrefix:"ChatGPT_1장재난의이해" },
+  { id:"gpt_ch2", group:"gpt", label:"ChatGPT", chapter:"2장 재난의 분류", count:100, filePrefix:"ChatGPT_2장재난의분류" },
+  { id:"gpt_ch3", group:"gpt", label:"ChatGPT", chapter:"3장 재난관리단계", count:100, filePrefix:"ChatGPT_3장재난관리단계" },
+  { id:"gpt_ch4", group:"gpt", label:"ChatGPT", chapter:"4장 재난관리 계획", count:100, filePrefix:"ChatGPT_4장재난관리계획" },
+  { id:"gpt_ch5", group:"gpt", label:"ChatGPT", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:100, filePrefix:"ChatGPT_5장재난관리행정체계및조직의변천" },
+  { id:"gpt_ch6", group:"gpt", label:"ChatGPT", chapter:"6장 미래 재난 관리", count:100, filePrefix:"ChatGPT_6장미래재난관리" },
 ];
 
 // ═══ STATE ═══════════════════════════════════════════════

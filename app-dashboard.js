@@ -443,7 +443,7 @@ function renderDashboard(data, userName = currentUser) {
     sub.textContent =
       attempts > 0
         ? "저장된 응시 기록을 기준으로 내 학습현황을 정리했습니다."
-        : "아직 저장된 응시 기록이 없습니다. 과목별 모의고사를 시작하세요.";
+        : "아직 저장된 응시 기록이 없습니다. AI별 과목 응시를 시작하세요.";
   }
 
   if (attemptsEl) attemptsEl.textContent = attempts;
@@ -564,7 +564,7 @@ function makeSetCard(set, completions) {
     ${badge}
     <p class="set-card-ai ${set.group}">${set.label}</p>
     <p class="set-card-title">${set.chapter}</p>
-    <p class="set-card-count">${set.count}문항 랜덤 출제</p>
+    <p class="set-card-count">${set.count}문항 전체 출제</p>
   `;
 
   card.onclick = function() {
