@@ -62,6 +62,16 @@ function getSelectEntryTarget() {
   }
 }
 
+function getRequestedTrack() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const track = params.get("track");
+    return track === "basic" || track === "deep" ? track : "";
+  } catch (e) {
+    return "";
+  }
+}
+
 function getDirectStartSet() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -536,11 +546,17 @@ function renderSetCards() {
 
   const renderUser = currentUser;
   const completions = getCompletions(renderUser);
+  const requestedTrack = getRequestedTrack();
 
   grid.innerHTML = "";
 
-  renderSetCardSection(grid, "일반 모의고사", "AI 생성 문제은행에서 과목별 20문항을 랜덤 출제합니다.", CHAPTER_EXAM_SETS, completions);
-  renderSetCardSection(grid, "심화 과정", "Gemini와 ChatGPT를 구분해 AI별·과목별 100문항 전체를 풉니다.", DEEP_EXAM_SETS, completions);
+  if (!requestedTrack || requestedTrack === "basic") {
+    renderSetCardSection(grid, "일반 모의고사", "AI 생성 문제은행에서 과목별 20문항을 랜덤 출제합니다.", CHAPTER_EXAM_SETS, completions);
+  }
+
+  if (!requestedTrack || requestedTrack === "deep") {
+    renderSetCardSection(grid, "심화 과정", "Gemini와 ChatGPT를 구분해 AI별·과목별 100문항 전체를 풉니다.", DEEP_EXAM_SETS, completions);
+  }
 }
 
 function renderSetCardSection(grid, title, desc, sets, completions) {
