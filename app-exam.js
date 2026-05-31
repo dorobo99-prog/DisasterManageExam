@@ -103,7 +103,7 @@ async function loadAndRenderExam(savedData) {
 function renderExam(savedData) {
   mobileProgressOpen = false;
   const aiLbl = document.getElementById("exam-ai-label");
-  aiLbl.textContent = currentSet.label + " · 과목별 100문항 전체 출제";
+  aiLbl.textContent = currentSet.modeLabel || (currentSet.label + " · " + currentSet.count + "문항 출제");
   aiLbl.className = "exam-header-ai " + currentSet.group;
   document.getElementById("exam-title").textContent = currentSet.chapter;
   document.getElementById("exam-meta").textContent  =

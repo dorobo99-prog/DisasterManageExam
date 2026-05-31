@@ -1,18 +1,38 @@
 // ═══ CONFIG ══════════════════════════════════════════════
-const EXAM_SETS = [
-  { id:"gemini_ch1", group:"gemini", label:"Gemini", chapter:"1장 재난의 이해", count:100, filePrefix:"Gemini_1장재난의이해" },
-  { id:"gemini_ch2", group:"gemini", label:"Gemini", chapter:"2장 재난의 분류", count:100, filePrefix:"Gemini_2장재난의분류" },
-  { id:"gemini_ch3", group:"gemini", label:"Gemini", chapter:"3장 재난관리단계", count:100, filePrefix:"Gemini_3장재난관리단계" },
-  { id:"gemini_ch4", group:"gemini", label:"Gemini", chapter:"4장 재난관리 계획", count:100, filePrefix:"Gemini_4장재난관리계획" },
-  { id:"gemini_ch5", group:"gemini", label:"Gemini", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:100, filePrefix:"Gemini_5장재난관리행정체계및조직의변천" },
-  { id:"gemini_ch6", group:"gemini", label:"Gemini", chapter:"6장 미래 재난 관리", count:100, filePrefix:"Gemini_6장미래재난관리" },
-  { id:"gpt_ch1", group:"gpt", label:"ChatGPT", chapter:"1장 재난의 이해", count:100, filePrefix:"ChatGPT_1장재난의이해" },
-  { id:"gpt_ch2", group:"gpt", label:"ChatGPT", chapter:"2장 재난의 분류", count:100, filePrefix:"ChatGPT_2장재난의분류" },
-  { id:"gpt_ch3", group:"gpt", label:"ChatGPT", chapter:"3장 재난관리단계", count:100, filePrefix:"ChatGPT_3장재난관리단계" },
-  { id:"gpt_ch4", group:"gpt", label:"ChatGPT", chapter:"4장 재난관리 계획", count:100, filePrefix:"ChatGPT_4장재난관리계획" },
-  { id:"gpt_ch5", group:"gpt", label:"ChatGPT", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:100, filePrefix:"ChatGPT_5장재난관리행정체계및조직의변천" },
-  { id:"gpt_ch6", group:"gpt", label:"ChatGPT", chapter:"6장 미래 재난 관리", count:100, filePrefix:"ChatGPT_6장미래재난관리" },
+const CHAPTER_EXAM_SETS = [
+  { id:"ch1", group:"mixed", label:"일반 모의고사", chapter:"1장 재난의 이해", count:20, filePrefix:"일반_1장재난의이해", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch2", group:"mixed", label:"일반 모의고사", chapter:"2장 재난의 분류", count:20, filePrefix:"일반_2장재난의분류", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch3", group:"mixed", label:"일반 모의고사", chapter:"3장 재난관리단계", count:20, filePrefix:"일반_3장재난관리단계", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch4", group:"mixed", label:"일반 모의고사", chapter:"4장 재난관리 계획", count:20, filePrefix:"일반_4장재난관리계획", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch5", group:"mixed", label:"일반 모의고사", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:20, filePrefix:"일반_5장재난관리행정체계및조직의변천", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch6", group:"mixed", label:"일반 모의고사", chapter:"6장 미래 재난 관리", count:20, filePrefix:"일반_6장미래재난관리", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch7", group:"mixed", label:"일반 모의고사", chapter:"7장 재난관리 핵심 교과목", count:20, filePrefix:"일반_7장재난관리핵심교과목", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch8", group:"mixed", label:"일반 모의고사", chapter:"8장 다학제적 접근", count:20, filePrefix:"일반_8장다학제적접근", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"ch9", group:"mixed", label:"일반 모의고사", chapter:"9장 재난 및 안전관리 기본법", count:20, filePrefix:"일반_9장재난및안전관리기본법", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
 ];
+
+const DEEP_EXAM_SETS = [
+  { id:"gemini_ch1", group:"gemini", label:"Gemini", chapter:"1장 재난의 이해", count:100, filePrefix:"Gemini_1장재난의이해", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch2", group:"gemini", label:"Gemini", chapter:"2장 재난의 분류", count:100, filePrefix:"Gemini_2장재난의분류", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch3", group:"gemini", label:"Gemini", chapter:"3장 재난관리단계", count:100, filePrefix:"Gemini_3장재난관리단계", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch4", group:"gemini", label:"Gemini", chapter:"4장 재난관리 계획", count:100, filePrefix:"Gemini_4장재난관리계획", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch5", group:"gemini", label:"Gemini", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:100, filePrefix:"Gemini_5장재난관리행정체계및조직의변천", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch6", group:"gemini", label:"Gemini", chapter:"6장 미래 재난 관리", count:100, filePrefix:"Gemini_6장미래재난관리", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch7", group:"gemini", label:"Gemini", chapter:"7장 재난관리 핵심 교과목", count:100, filePrefix:"Gemini_7장재난관리핵심교과목", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch8", group:"gemini", label:"Gemini", chapter:"8장 다학제적 접근", count:100, filePrefix:"Gemini_8장다학제적접근", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch9", group:"gemini", label:"Gemini", chapter:"9장 재난 및 안전관리 기본법", count:100, filePrefix:"Gemini_9장재난및안전관리기본법", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch1", group:"gpt", label:"ChatGPT", chapter:"1장 재난의 이해", count:100, filePrefix:"ChatGPT_1장재난의이해", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch2", group:"gpt", label:"ChatGPT", chapter:"2장 재난의 분류", count:100, filePrefix:"ChatGPT_2장재난의분류", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch3", group:"gpt", label:"ChatGPT", chapter:"3장 재난관리단계", count:100, filePrefix:"ChatGPT_3장재난관리단계", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch4", group:"gpt", label:"ChatGPT", chapter:"4장 재난관리 계획", count:100, filePrefix:"ChatGPT_4장재난관리계획", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch5", group:"gpt", label:"ChatGPT", chapter:"5장 재난관리 행정체계 및 조직의 변천", count:100, filePrefix:"ChatGPT_5장재난관리행정체계및조직의변천", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch6", group:"gpt", label:"ChatGPT", chapter:"6장 미래 재난 관리", count:100, filePrefix:"ChatGPT_6장미래재난관리", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch7", group:"gpt", label:"ChatGPT", chapter:"7장 재난관리 핵심 교과목", count:100, filePrefix:"ChatGPT_7장재난관리핵심교과목", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch8", group:"gpt", label:"ChatGPT", chapter:"8장 다학제적 접근", count:100, filePrefix:"ChatGPT_8장다학제적접근", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch9", group:"gpt", label:"ChatGPT", chapter:"9장 재난 및 안전관리 기본법", count:100, filePrefix:"ChatGPT_9장재난및안전관리기본법", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+];
+
+const EXAM_SETS = CHAPTER_EXAM_SETS.concat(DEEP_EXAM_SETS);
 
 // ═══ STATE ═══════════════════════════════════════════════
 let currentUser = "";

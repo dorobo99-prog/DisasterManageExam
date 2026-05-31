@@ -171,7 +171,10 @@ module.exports = async function handler(req, res) {
             when 'ch4' then 4
             when 'ch5' then 5
             when 'ch6' then 6
-            when 'all' then 7
+            when 'ch7' then 7
+            when 'ch8' then 8
+            when 'ch9' then 9
+            when 'all' then 10
             else 99
           end,
           set_id
@@ -293,7 +296,10 @@ module.exports = async function handler(req, res) {
             when 'ch4' then 4
             when 'ch5' then 5
             when 'ch6' then 6
-            when 'all' then 7
+            when 'ch7' then 7
+            when 'ch8' then 8
+            when 'ch9' then 9
+            when 'all' then 10
             else 99
           end,
           set_id

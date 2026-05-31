@@ -443,7 +443,7 @@ function renderDashboard(data, userName = currentUser) {
     sub.textContent =
       attempts > 0
         ? "저장된 응시 기록을 기준으로 내 학습현황을 정리했습니다."
-        : "아직 저장된 응시 기록이 없습니다. AI별 과목 응시를 시작하세요.";
+        : "아직 저장된 응시 기록이 없습니다. 일반 모의고사 또는 심화 과정을 시작하세요.";
   }
 
   if (attemptsEl) attemptsEl.textContent = attempts;
@@ -539,9 +539,28 @@ function renderSetCards() {
 
   grid.innerHTML = "";
 
-  EXAM_SETS.forEach(function(set) {
-    grid.appendChild(makeSetCard(set, completions));
+  renderSetCardSection(grid, "일반 모의고사", "AI 생성 문제은행에서 과목별 20문항을 랜덤 출제합니다.", CHAPTER_EXAM_SETS, completions);
+  renderSetCardSection(grid, "심화 과정", "Gemini와 ChatGPT를 구분해 AI별·과목별 100문항 전체를 풉니다.", DEEP_EXAM_SETS, completions);
+}
+
+function renderSetCardSection(grid, title, desc, sets, completions) {
+  const section = document.createElement("div");
+  section.className = "set-card-section";
+  section.innerHTML = `
+    <div class="set-card-section-head">
+      <h4>${title}</h4>
+      <p>${desc}</p>
+    </div>
+    <div class="set-grid-inner"></div>
+  `;
+
+  const inner = section.querySelector(".set-grid-inner");
+
+  sets.forEach(function(set) {
+    inner.appendChild(makeSetCard(set, completions));
   });
+
+  grid.appendChild(section);
 }
 
 function makeSetCard(set, completions) {
@@ -564,7 +583,7 @@ function makeSetCard(set, completions) {
     ${badge}
     <p class="set-card-ai ${set.group}">${set.label}</p>
     <p class="set-card-title">${set.chapter}</p>
-    <p class="set-card-count">${set.count}문항 전체 출제</p>
+    <p class="set-card-count">${set.cardMeta || (set.count + "문항 출제")}</p>
   `;
 
   card.onclick = function() {

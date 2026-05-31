@@ -217,12 +217,39 @@
 
     .set-grid {
       display: grid;
+      gap: 28px;
+    }
+
+    .set-card-section {
+      min-width: 0;
+    }
+
+    .set-card-section-head {
+      margin-bottom: 14px;
+    }
+
+    .set-card-section-head h4 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.28px;
+      color: var(--near-black);
+      margin-bottom: 4px;
+    }
+
+    .set-card-section-head p {
+      font-size: 13px;
+      color: var(--dim-text);
+      letter-spacing: -0.224px;
+    }
+
+    .set-grid-inner {
+      display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 16px;
     }
-    @media (max-width: 640px)  { .set-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 640px)  { .set-grid-inner { grid-template-columns: 1fr; } }
     @media (min-width: 641px) and (max-width: 900px) {
-      .set-grid { grid-template-columns: repeat(2, 1fr); }
+      .set-grid-inner { grid-template-columns: repeat(2, 1fr); }
     }
 
     .set-card {
@@ -241,6 +268,7 @@
     }
     .set-card-ai.gemini { color: #4285f4; }
     .set-card-ai.gpt    { color: #19c37d; }
+    .set-card-ai.mixed  { color: var(--blue); }
     .set-card-title {
       font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: 18px; font-weight: 600; line-height: 1.3;
