@@ -551,7 +551,7 @@ function renderSetCards() {
   grid.innerHTML = "";
 
   if (!requestedTrack || requestedTrack === "basic") {
-    renderSetCardSection(grid, "일반 모의고사", "AI 생성 문제은행에서 과목별 20문항을 랜덤 출제합니다.", CHAPTER_EXAM_SETS, completions);
+    renderSetCardSection(grid, "일반 모의고사", "과목별 20문항 9개 세트와 9과목 전체 범위 60문항 세트를 제공합니다.", CHAPTER_EXAM_SETS, completions);
   }
 
   if (!requestedTrack || requestedTrack === "deep") {

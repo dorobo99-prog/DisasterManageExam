@@ -9,6 +9,7 @@ const CHAPTER_EXAM_SETS = [
   { id:"ch7", group:"mixed", label:"일반 모의고사", chapter:"7장 재난관리 핵심 교과목", count:20, filePrefix:"일반_7장재난관리핵심교과목", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
   { id:"ch8", group:"mixed", label:"일반 모의고사", chapter:"8장 다학제적 접근", count:20, filePrefix:"일반_8장다학제적접근", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
   { id:"ch9", group:"mixed", label:"일반 모의고사", chapter:"9장 재난 및 안전관리 기본법", count:20, filePrefix:"일반_9장재난및안전관리기본법", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"all", group:"mixed", label:"일반 모의고사", chapter:"전체 과목 모의고사", count:60, filePrefix:"일반_전체과목모의고사", modeLabel:"AI 생성 문제은행 · 9과목 전체 범위 60문항 랜덤 출제", cardMeta:"60문항 랜덤 출제" },
 ];
 
 const DEEP_EXAM_SETS = [
