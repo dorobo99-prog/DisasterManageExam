@@ -551,7 +551,7 @@ function renderSetCards() {
   grid.innerHTML = "";
 
   if (!requestedTrack || requestedTrack === "basic") {
-    renderSetCardSection(grid, "일반 모의고사", "과목별 20문항 9개 세트와 9과목 전체 범위 60문항 세트를 제공합니다.", CHAPTER_EXAM_SETS, completions);
+    renderSetCardSection(grid, "일반 모의고사", "장별 20문항 10개 세트와 각 장에서 6문항씩 균등 출제하는 전체 범위 60문항 세트를 제공합니다.", CHAPTER_EXAM_SETS, completions);
   }
 
   if (!requestedTrack || requestedTrack === "deep") {

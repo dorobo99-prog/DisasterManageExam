@@ -9,7 +9,8 @@ const CHAPTER_EXAM_SETS = [
   { id:"ch7", group:"mixed", label:"일반 모의고사", chapter:"7장 재난관리 핵심 교과목", count:20, filePrefix:"일반_7장재난관리핵심교과목", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
   { id:"ch8", group:"mixed", label:"일반 모의고사", chapter:"8장 다학제적 접근", count:20, filePrefix:"일반_8장다학제적접근", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
   { id:"ch9", group:"mixed", label:"일반 모의고사", chapter:"9장 재난 및 안전관리 기본법", count:20, filePrefix:"일반_9장재난및안전관리기본법", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
-  { id:"all", group:"mixed", label:"일반 모의고사", chapter:"전체 과목 모의고사", count:60, filePrefix:"일반_전체과목모의고사", modeLabel:"AI 생성 문제은행 · 9과목 전체 범위 60문항 랜덤 출제", cardMeta:"60문항 랜덤 출제" },
+  { id:"ch10", group:"mixed", label:"일반 모의고사", chapter:"10장 실무 가이드북", count:20, filePrefix:"일반_10장실무가이드북", modeLabel:"AI 생성 문제은행 · 과목별 20문항 랜덤 출제", cardMeta:"20문항 랜덤 출제" },
+  { id:"all", group:"mixed", label:"일반 모의고사", chapter:"전체 과목 모의고사", count:60, filePrefix:"일반_전체과목모의고사", modeLabel:"AI 생성 문제은행 · 10장별 6문항(각 AI 3문항) 균등 출제", cardMeta:"60문항 · 장별 6문항" },
 ];
 
 const DEEP_EXAM_SETS = [
@@ -22,6 +23,7 @@ const DEEP_EXAM_SETS = [
   { id:"gemini_ch7", group:"gemini", label:"Gemini", chapter:"7장 재난관리 핵심 교과목", count:100, filePrefix:"Gemini_7장재난관리핵심교과목", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gemini_ch8", group:"gemini", label:"Gemini", chapter:"8장 다학제적 접근", count:100, filePrefix:"Gemini_8장다학제적접근", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gemini_ch9", group:"gemini", label:"Gemini", chapter:"9장 재난 및 안전관리 기본법", count:100, filePrefix:"Gemini_9장재난및안전관리기본법", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gemini_ch10", group:"gemini", label:"Gemini", chapter:"10장 실무 가이드북", count:100, filePrefix:"Gemini_10장실무가이드북", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gpt_ch1", group:"gpt", label:"ChatGPT", chapter:"1장 재난의 이해", count:100, filePrefix:"ChatGPT_1장재난의이해", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gpt_ch2", group:"gpt", label:"ChatGPT", chapter:"2장 재난의 분류", count:100, filePrefix:"ChatGPT_2장재난의분류", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gpt_ch3", group:"gpt", label:"ChatGPT", chapter:"3장 재난관리단계", count:100, filePrefix:"ChatGPT_3장재난관리단계", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
@@ -31,6 +33,7 @@ const DEEP_EXAM_SETS = [
   { id:"gpt_ch7", group:"gpt", label:"ChatGPT", chapter:"7장 재난관리 핵심 교과목", count:100, filePrefix:"ChatGPT_7장재난관리핵심교과목", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gpt_ch8", group:"gpt", label:"ChatGPT", chapter:"8장 다학제적 접근", count:100, filePrefix:"ChatGPT_8장다학제적접근", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
   { id:"gpt_ch9", group:"gpt", label:"ChatGPT", chapter:"9장 재난 및 안전관리 기본법", count:100, filePrefix:"ChatGPT_9장재난및안전관리기본법", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
+  { id:"gpt_ch10", group:"gpt", label:"ChatGPT", chapter:"10장 실무 가이드북", count:100, filePrefix:"ChatGPT_10장실무가이드북", modeLabel:"심화 과정 · AI별 과목별 100문항 전체 출제", cardMeta:"100문항 전체 출제" },
 ];
 
 const EXAM_SETS = CHAPTER_EXAM_SETS.concat(DEEP_EXAM_SETS);
